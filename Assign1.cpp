@@ -133,10 +133,9 @@ private:
     };
 
     void load(sqlite3* db){
-        cout << "Loading cars..." << endl;
         if (isTableEmpty(db, tablename)) {
+            cout << "Loading cars..." << endl;
             for(pair<string, string> data : defaultData){
-                cout << "Adding car: " << data.first << " (" << data.second << ")" << endl;
                 add(db, data);
             }
         }
@@ -158,7 +157,7 @@ private:
         if (sqlite3_step(stmt) != SQLITE_DONE) {
             cerr << "Error inserting " << tablename << ": " << sqlite3_errmsg(db) << endl;
         }
-        cout<< "Car added successfully." << endl;
+        cout<< "Car "<< car.first <<"("<<car.second<<")" <<" added successfully." << endl;
         sqlite3_finalize(stmt);
     }
 
