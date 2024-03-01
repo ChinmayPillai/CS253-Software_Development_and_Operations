@@ -5,6 +5,11 @@
 
 using namespace std;
 
+string const filename = "car_rental.db";
+int const rentDaysAllowed = 7;
+int const rentPerDay = 100;
+int const employeeDiscount = 0.15;
+
 bool askConfirmation(const string& message) {
     char choice;
     cout << message << " (y/n): ";
@@ -13,10 +18,7 @@ bool askConfirmation(const string& message) {
     return tolower(choice) == 'y';
 }
 
-string filename = "car_rental.db";
-
 class Db{
-
 protected:
     string tablename;
     
@@ -152,101 +154,28 @@ public:
         return exists;
     }
 
-    static bool rent(int cusId, int carId, string table, sqlite3* db = nullptr){
-        if(db == nullptr){
-            if (!Db::connectToDatabase(&db)) return false;
-        }
+    static void updateDues(int cusId, int money, int dues, string table){
+        sqlite3* db;
+        if (!connectToDatabase(&db)) return;
+        string sql = "UPDATE " + table + " SET money = ?, fineDue = ? WHERE id = ?;";
 
-        // Update car availability and user rented cars
-        sqlite3_stmt* stmt;
-        string sql = "UPDATE cars SET available=0 WHERE id=?";
-        sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr);
-        sqlite3_bind_int(stmt, 1, carId);
-        if (sqlite3_step(stmt) != SQLITE_DONE) {
-            cerr << "Error updating car availability: " << sqlite3_errmsg(db) << endl;
-            sqlite3_finalize(stmt);
-            sqlite3_close(db);
-            return false;
-        }
-
-        sql = "UPDATE " + table + " SET rentedCars=rentedCars+1 WHERE id=?";
-        sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr);
-        sqlite3_bind_int(stmt, 1, cusId);
-        if (sqlite3_step(stmt) != SQLITE_DONE) {
-            cerr << "Error updating " + table + " rented cars: " << sqlite3_errmsg(db) << endl;
-            sqlite3_finalize(stmt);
-            sqlite3_close(db);
-            return false;
-        }
-        sqlite3_finalize(stmt);
-        cout << "Car rented successfully." << endl;
-        return true;
-    }
-
-    static bool checkRents(int cusId, string table, sqlite3* db = nullptr){
-        if(db == nullptr){
-            if (!Db::connectToDatabase(&db)) return false;
-        }
-        // Check if customer has rented cars
-        string sql = "SELECT * FROM " + table + " WHERE id=? AND rentedCars>0";
         sqlite3_stmt* stmt;
         if (sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr) != SQLITE_OK) {
-            cerr << "Error preparing statement: " << sqlite3_errmsg(db) << endl;
-            sqlite3_finalize(stmt);
-            sqlite3_close(db);
-            return false;
+            cerr << "Error preparing statement for updating: " << sqlite3_errmsg(db) << endl;
+            return;
         }
 
-        sqlite3_bind_int(stmt, 1, cusId);
+        // Bind the values of t to the prepared statement
+        sqlite3_bind_int(stmt, 1, money); // Money
+        sqlite3_bind_int(stmt, 2, dues); // Dues
+        sqlite3_bind_int(stmt, 3, cusId); // ID
 
-        if (sqlite3_step(stmt) != SQLITE_ROW) {
-            cout << "You haven't rented any cars." << endl;
-            sqlite3_finalize(stmt);
-            sqlite3_close(db);
-            return false;
-        }
-
-        // Display all rented car details
-        cout << "Your rented cars:" << endl;
-        do {
-            int customer_id = sqlite3_column_int(stmt, 0);
-            string customer_name = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1));
-            string model = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 2));
-            string year = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 3));
-
-            cout << customer_id << ". " << model << " (" << year << ") - Rented by: " << customer_name << endl;
-        } while (sqlite3_step(stmt) == SQLITE_ROW);
-
-        sqlite3_finalize(stmt);
-        return true;
-    }
-
-    static bool returnCar(int cusId, int carId, string table, sqlite3* db = nullptr){
-        if(db == nullptr){
-            if (!Db::connectToDatabase(&db)) return false;
-        }
-
-        // Update car availability and user rented cars
-        sqlite3_stmt* stmt;
-
-        string sql = "UPDATE cars SET available=1 WHERE id=?";
-        sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr);
-        sqlite3_bind_int(stmt, 1, carId);
+        // Execute the statement
         if (sqlite3_step(stmt) != SQLITE_DONE) {
-            cerr << "Error updating car availability: " << sqlite3_errmsg(db) << endl;
-            return false;
-        }
-        sql = "UPDATE " + table + " SET rentedCars=rentedCars-1 WHERE id=?";
-        sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr);
-        sqlite3_bind_int(stmt, 1, cusId);
-        if (sqlite3_step(stmt) != SQLITE_DONE) {
-            cerr << "Error updating " + table + " rented cars: " << sqlite3_errmsg(db) << endl;
-            return false;
+            cerr << "Error updating customers: " << sqlite3_errmsg(db) << endl;
         }
 
         sqlite3_finalize(stmt);
-        cout << "Car returned successfully." << endl;
-        return true;
     }
 };
 
@@ -275,10 +204,74 @@ public:
         tablename = "cars";
         sqlite3* db;
         connectToDatabase(&db);
-        string sql = "CREATE TABLE IF NOT EXISTS cars (id INTEGER PRIMARY KEY AUTOINCREMENT, model TEXT NOT NULL, year TEXT, available INTEGER NOT NULL DEFAULT 1)";
+        string sql = "CREATE TABLE IF NOT EXISTS cars (id INTEGER PRIMARY KEY AUTOINCREMENT, model TEXT NOT NULL, year TEXT, available INTEGER NOT NULL DEFAULT 1, rentedBy INTEGER NOT NULL DEFAULT -1, rentedOn INTEGER NOT NULL DEFAULT -1, FOREIGN KEY(rentedBy) REFERENCES customers(id) ON DELETE SET DEFAULT)";
         //string sql_customers = "CREATE TABLE IF NOT EXISTS customers (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, password TEXT NOT NULL, rentedCars INTEGER NOT NULL DEFAULT 0, fineDue DOUBLE NOT NULL DEFAULT 0, customerRecord DOUBLE NOT NULL DEFAULT 0)";
         createTable(db, sql);
         load(db);
+    }
+
+    static bool searchRentableCar(int id, sqlite3* db = nullptr){
+        if(db == nullptr){
+            if (!connectToDatabase(&db)) return false;
+        }
+        string sql = "SELECT EXISTS (SELECT 1 FROM cars WHERE id = ? AND available=1);";
+
+        sqlite3_stmt* stmt;
+        if (sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr) != SQLITE_OK) {
+            cerr << "Error preparing statement for searching: " << sqlite3_errmsg(db) << endl;
+            return false;
+        }
+
+        // Bind the value of id to the prepared statement
+        sqlite3_bind_int(stmt, 1, id);
+
+        // Execute the statement
+        if (sqlite3_step(stmt) != SQLITE_ROW) {
+            cerr << "Error executing statement: " << sqlite3_errmsg(db) << endl;
+            sqlite3_finalize(stmt);
+            return false;
+        }
+
+        // Check if EXISTS returned 1 (first column)
+        bool exists = sqlite3_column_int(stmt, 0) == 1;
+
+        sqlite3_finalize(stmt);
+        return exists;
+    }
+
+    static vector<string> searchCar(int id){
+        sqlite3* db;
+        if (!connectToDatabase(&db)) return {};
+        string sql = "SELECT * FROM cars WHERE id = ?";
+        sqlite3_stmt* stmt;
+        if (sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr) != SQLITE_OK) {
+            cerr << "Error preparing statement for searching: " << sqlite3_errmsg(db) << endl;
+            sqlite3_finalize(stmt);
+            sqlite3_close(db);
+            return {};
+        }
+
+        // Bind the value of id to the prepared statement
+        sqlite3_bind_int(stmt, 1, id);
+
+        // Execute the statement
+        if (sqlite3_step(stmt) != SQLITE_ROW) {
+            cerr << "Error executing statement: " << sqlite3_errmsg(db) << endl;
+            sqlite3_finalize(stmt);
+            sqlite3_close(db);
+            return {};
+        }
+
+        vector<string> car;
+        car.push_back(to_string(sqlite3_column_int(stmt, 0)));
+        car.push_back(reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1)));
+        car.push_back(reinterpret_cast<const char*>(sqlite3_column_text(stmt, 2)));
+        car.push_back(reinterpret_cast<const char*>(sqlite3_column_text(stmt, 3)));
+        car.push_back(reinterpret_cast<const char*>(sqlite3_column_text(stmt, 4)));
+        car.push_back(reinterpret_cast<const char*>(sqlite3_column_text(stmt, 5)));
+        sqlite3_finalize(stmt);
+        sqlite3_close(db);
+        return car;
     }
 
 
@@ -310,7 +303,7 @@ public:
             if (!connectToDatabase(&db)) return;
         }
         if (searchTable(id, "cars", db)) {
-            string sql = "UPDATE cars SET model = ?, year = ? WHERE id = ?;";
+            string sql = "UPDATE cars SET model = ?, year = ?, available = ?, rentedBy = ?, rentedOn = ? WHERE id = ?;";
 
             sqlite3_stmt* stmt;
             if (sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr) != SQLITE_OK) {
@@ -321,7 +314,10 @@ public:
             // Bind the values of car to the prepared statement
             sqlite3_bind_text(stmt, 1, car[0].c_str(), -1, SQLITE_TRANSIENT); // Model
             sqlite3_bind_text(stmt, 2, car[1].c_str(), -1, SQLITE_TRANSIENT); // Year
-            sqlite3_bind_int(stmt, 3, id); // ID
+            sqlite3_bind_text(stmt, 3, car[2].c_str(), -1, SQLITE_TRANSIENT); // Available
+            sqlite3_bind_text(stmt, 4, car[3].c_str(), -1, SQLITE_TRANSIENT); // RentedBy
+            sqlite3_bind_text(stmt, 5, car[4].c_str(), -1, SQLITE_TRANSIENT); // RentedBy
+            sqlite3_bind_int(stmt, 6, id); // ID
 
             // Execute the statement
             if (sqlite3_step(stmt) != SQLITE_DONE) {
@@ -366,6 +362,50 @@ public:
 
         sqlite3_finalize(stmt);
     }
+
+    static void displayAll(sqlite3* db = nullptr){
+        if(db == nullptr){
+            if (!connectToDatabase(&db)) return;
+        }
+
+        string sql = "SELECT * FROM cars";
+        sqlite3_stmt* stmt;
+        if (sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr) != SQLITE_OK) {
+            cerr << "Error preparing statement: " << sqlite3_errmsg(db) << endl;
+            sqlite3_finalize(stmt);
+            sqlite3_close(db);
+            return;
+        }
+
+        if (sqlite3_step(stmt) != SQLITE_ROW) {
+            cout << "No cars available." << endl;
+            sqlite3_finalize(stmt);
+            sqlite3_close(db);
+            return;
+        }
+
+        // Display all available car details
+        cout << "Displaying all cars:" << endl;
+        do {
+            int carId = sqlite3_column_int(stmt, 0);
+            string model = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1));
+            string year = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 2));
+            string available = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 3));
+            string rentedBy = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 4));
+            string rentedOn = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 5));
+            
+
+            cout << carId << ". " << model << " (" << year << "), ";
+            if(available == "1"){
+                cout << "Available"<<endl;
+            } else {
+                cout << "Rented by: " << rentedBy << " on Day: "<< rentedOn <<endl;
+            }
+        } while (sqlite3_step(stmt) == SQLITE_ROW);
+
+        sqlite3_finalize(stmt);
+    }
+
 };
 
 class CustomerDb : public Db{
@@ -707,6 +747,155 @@ protected:
 
 
 
+
+// Class for cars
+class Car {
+private:
+    string model;
+    string condition;
+    string tablename = "cars";
+public:
+    Car(string m, string c) : model(m), condition(c) {}
+
+    static bool rent(int cusId, int carId, int date, string table, sqlite3* db = nullptr){
+        if(db == nullptr){
+            if (!Db::connectToDatabase(&db)) return false;
+        }
+
+        // Update car availability and user rented cars
+        sqlite3_stmt* stmt;
+        string sql = "UPDATE cars SET available=available-1, rentedBy=?, rentedOn=? WHERE id=?";
+        sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr);
+        sqlite3_bind_int(stmt, 1, cusId);
+        sqlite3_bind_int(stmt, 2, date);
+        sqlite3_bind_int(stmt, 3, carId);
+        if (sqlite3_step(stmt) != SQLITE_DONE) {
+            cerr << "Error updating car availability: " << sqlite3_errmsg(db) << endl;
+            sqlite3_finalize(stmt);
+            sqlite3_close(db);
+            return false;
+        }
+
+        sql = "UPDATE " + table + " SET rentedCars=rentedCars+1 WHERE id=?";
+        sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr);
+        sqlite3_bind_int(stmt, 1, cusId);
+        if (sqlite3_step(stmt) != SQLITE_DONE) {
+            cerr << "Error updating " + table + " rented cars: " << sqlite3_errmsg(db) << endl;
+            sqlite3_finalize(stmt);
+            sqlite3_close(db);
+            return false;
+        }
+        sqlite3_finalize(stmt);
+        cout << "Car rented successfully." << endl;
+        return true;
+    }
+
+    static vector<int> checkRents(int cusId, string table, sqlite3* db = nullptr){
+        if(db == nullptr){
+            if (!Db::connectToDatabase(&db)) return {};
+        }
+        // Check if customer has rented cars
+        string sql = "SELECT * FROM cars WHERE rentedBy=?";
+        sqlite3_stmt* stmt;
+        if (sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr) != SQLITE_OK) {
+            cerr << "Error preparing statement: " << sqlite3_errmsg(db) << endl;
+            sqlite3_finalize(stmt);
+            sqlite3_close(db);
+            return {};
+        }
+
+        sqlite3_bind_int(stmt, 1, cusId);
+
+        if (sqlite3_step(stmt) != SQLITE_ROW) {
+            cout << "You haven't rented any cars." << endl;
+            sqlite3_finalize(stmt);
+            sqlite3_close(db);
+            return {};
+        }
+
+        vector<int> rentedCars;
+
+        // Display all rented car details
+        cout << "Your rented cars:" << endl;
+        do {
+            int car_id = sqlite3_column_int(stmt, 0);
+            string model = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1));
+            string year = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 2));
+            
+
+            cout << car_id << ". " << model << " (" << year << ")"<< endl;
+            rentedCars.push_back(car_id);
+
+        } while (sqlite3_step(stmt) == SQLITE_ROW);
+
+        sqlite3_finalize(stmt);
+        return rentedCars;
+    }
+
+    static bool returnCar(int cusId, int carId, int date, string table, int daysAllowed, int rentPerDay, double employeeDiscount, sqlite3* db = nullptr){
+        if(db == nullptr){
+            if (!Db::connectToDatabase(&db)) return false;
+        }
+
+        sqlite3_stmt* stmt;
+
+        vector<string> car = CarDb::searchCar(carId);
+        int rentedOn = stoi(car[5]);
+        int rentDays = date - rentedOn;
+        int fine = rentDays * rentPerDay;
+        if( table == "employees"){
+            fine = (1-employeeDiscount) * fine;
+        }
+        if(rentDays > daysAllowed){
+            cout << "You have exceeded the allowed rental period. A fine of $10 per day will be added to your account." << endl;
+            fine += 10 * (rentDays - daysAllowed);
+
+            string sql = "UPDATE " + table + " SET customerRecord=customerRecord-2 WHERE id=?";
+            sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr);
+            sqlite3_bind_int(stmt, 1, cusId);
+            if (sqlite3_step(stmt) != SQLITE_DONE) {
+                cerr << "Error updating " + table + " customer record: " << sqlite3_errmsg(db) << endl;
+                sqlite3_finalize(stmt);
+                sqlite3_close(db);
+                return false;
+            }
+            sqlite3_finalize(stmt);
+        }
+
+        // Update car availability and user rented cars
+
+        string sql = "UPDATE cars SET available=available+1, rentedBy=-1 WHERE id=?";
+        sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr);
+        sqlite3_bind_int(stmt, 1, carId);
+        if (sqlite3_step(stmt) != SQLITE_DONE) {
+            cerr << "Error updating car availability: " << sqlite3_errmsg(db) << endl;
+            return false;
+        }
+        sql = "UPDATE " + table + " SET rentedCars=rentedCars-1, fineDue=fineDue+? WHERE id=?";
+        sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr);
+        sqlite3_bind_int(stmt, 1, fine);
+        sqlite3_bind_int(stmt, 2, cusId);
+        if (sqlite3_step(stmt) != SQLITE_DONE) {
+            cerr << "Error updating " + table + " rented cars: " << sqlite3_errmsg(db) << endl;
+            return false;
+        }
+
+        sqlite3_finalize(stmt);
+        cout << "Car returned successfully." << endl;
+        return true;
+    }
+
+    void showDueDate() {
+        // Code to show due date
+    }
+
+    void displayDetails() const {
+        cout << "Model: " << model << ", Condition: " << condition << endl;
+    }
+};
+
+
+
 // Class for manager
 class Manager : public User {
 
@@ -716,6 +905,10 @@ private:
     EmployeeDb employees;
 
 public:
+    // static int rentDays;
+    // int rentPerDay;
+    // double employeeDiscount;
+
     Manager(string n, int i, string p) : User(n, i, p) {}
 
     void addCustomer(vector<string> cus) {
@@ -765,20 +958,36 @@ public:
 
     
     static bool rent(int cusId, int carId, string table, sqlite3* db = nullptr){
-        return Db::rent(cusId, carId, table, db);
+        int date;
+        cout << "Enter today's date (int)"<<endl;
+        cin >> date;
+        return Car::rent(cusId, carId, date, table, db);
     }
 
-    static bool checkRents(int cusId, string table, sqlite3* db = nullptr){
-        return Db::checkRents(cusId, table, db);
+    static vector<int> checkRents(int cusId, string table, sqlite3* db = nullptr){
+        return Car::checkRents(cusId, table, db);
     }
 
     static bool returnCar(int cusId, int carId, string table, sqlite3* db = nullptr){
-        return Db::returnCar(cusId, carId, table, db);
+        int date;
+        cout << "Enter today's date (int)"<<endl;
+        cin >> date;
+        return Car::returnCar(cusId, carId, date, table, rentDaysAllowed, rentPerDay, employeeDiscount, db);
+    }
+
+    static void updateDues(int cusId, int money, int dues, string table){
+        Db::updateDues(cusId, money, dues, table);
+        return;
+    }
+
+    void displayAvailableCars() {
+        // Code to display all cars
+        cars.display();
     }
 
     void displayAllCars() {
         // Code to display all cars
-        cars.display();
+        cars.displayAll();
     }
 
     void displayDetails() const override {
@@ -813,7 +1022,7 @@ public:
         
 
         // Validate user input
-        bool foundCar = CarDb::searchTable(carId, "cars", db);
+        bool foundCar = CarDb::searchRentableCar(carId, db);
 
         if (!foundCar) {
             cout << "Invalid car ID. Please choose from the list above." << endl;
@@ -835,7 +1044,8 @@ public:
         if (!Db::connectToDatabase(&db)) return;
 
         //Check and display rented cars 
-        if(!Manager::checkRents(id, table, db)){
+        vector<int> rentedCars = Manager::checkRents(id, table, db);
+        if(rentedCars.size() == 0){
             return;
         }
 
@@ -845,7 +1055,13 @@ public:
         cin >> chosenId;
 
         // Validate user input
-        bool foundCar = CarDb::searchTable(chosenId, "cars", db);
+        bool foundCar = false;
+        for (int carId : rentedCars) {
+            if (carId == chosenId) {
+                foundCar = true;
+                break;
+            }
+        }
 
         if (!foundCar) {
             cout << "Invalid car ID. Please choose from the list above." << endl;
@@ -861,13 +1077,14 @@ public:
         sqlite3_close(db);
     }
 
-    void clear_dues(){
+    void clear_dues(int money){
         // Code to clear dues
         sqlite3* db;
         if (!Db::connectToDatabase(&db)) return;
 
+
         // Check if customer has any dues
-        string sql = "SELECT * FROM customers WHERE id=? AND (fineDue>0)"; // Adjust condition based on your criteria for having dues
+        string sql = "SELECT * FROM " + table + " WHERE id=? AND (fineDue>0)"; // Adjust condition based on your criteria for having dues
         sqlite3_stmt* stmt;
         if (sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr) != SQLITE_OK) {
             cerr << "Error preparing statement: " << sqlite3_errmsg(db) << endl;
@@ -875,6 +1092,8 @@ public:
             sqlite3_close(db);
             return;
         }
+
+        sqlite3_bind_int(stmt, 1, id);
 
         if (sqlite3_step(stmt) != SQLITE_ROW) {
             cout << "You don't have any outstanding dues." << endl;
@@ -932,10 +1151,41 @@ public:
         name = cus[1];
     }
 
+    void clear_dues(){
+        vector<string> cus = CustomerDb::searchCus(id);
+
+        int money = stoi(cus[2]);
+        int dues = stoi(cus[4]);
+
+        if(dues == 0){
+            cout << "You don't have any outstanding dues." << endl;
+            return;
+        }
+
+        if(money >= dues){
+            money -= dues;
+            dues = 0;
+            cout<<"Dues cleared successfully."<<endl;
+        }
+        else{
+            cout << "ALERT!!! You don't have enough money to clear your dues." << endl;
+            cout << "Please add money to your account." << endl;
+            cout << "Cleared " << money << " of your dues. " << dues - money << " is still pending." << endl;
+            dues -= money;
+            money = 0;
+        }
+        Manager::updateDues(id, money, dues, "customers");
+        return;
+    }
+
     void displayDetails() const override {
+        vector<string> cus = CustomerDb::searchCus(id);
+        if(cus.size() == 0){
+            cout<<"Invalid Customer ID"<<endl;
+            exit(1);
+        }
         User::displayDetails();
         cout << "Role: Customer" << endl;
-        vector<string> cus = CustomerDb::searchCus(id);
         cout << "Money: " << cus[2] << " Rented Cars: " << cus[3] << ", Fine Due: " << cus[4] << ", Customer Record: " << cus[5] << endl;
     }
 };
@@ -945,141 +1195,79 @@ class Employee : public RentableUser {
 public:
     Employee(int id) : RentableUser(id, "employees") {}
 
+    void clear_dues(){
+        vector<string> emp = EmployeeDb::searchEmp(id);
+
+        int money = stoi(emp[2]);
+        int dues = stoi(emp[4]);
+
+        if(dues == 0){
+            cout << "You don't have any outstanding dues." << endl;
+            return;
+        }
+
+        if(money >= dues){
+            money -= dues;
+            dues = 0;
+            cout<<"Dues cleared successfully."<<endl;
+        }
+        else{
+            cout << "ALERT!!! You don't have enough money to clear your dues." << endl;
+            cout << "Please add money to your account." << endl;
+            cout << "Cleared " << money << " of your dues. " + dues - money << " is still pending." << endl;
+            dues -= money;
+            money = 0;
+        }
+        Manager::updateDues(id, money, dues, "employees");
+        return;
+    }
+
     void displayDetails() const override {
+        vector<string> emp = EmployeeDb::searchEmp(id);
+        if(emp.size() == 0){
+            cout<<"Invalid Employee ID"<<endl;
+            exit(1);
+        }
         User::displayDetails();
         cout << "Role: Employee" << endl;
-        vector<string> emp = EmployeeDb::searchEmp(id);
         cout << "Money: " << emp[2] << ", Rented Cars: " << emp[3] << ", Fine Due: " << emp[4] << ", Employee Record: " << emp[5] << endl;
     }
 };
 
 
 
-// Class for cars
-class Car {
-private:
-    string model;
-    string condition;
-    string tablename = "cars";
-public:
-    Car(string m, string c) : model(m), condition(c) {}
-
-    void rentRequest() {
-        // Code to process rent request
-    }
-
-    void showDueDate() {
-        // Code to show due date
-    }
-
-    void displayDetails() const {
-        cout << "Model: " << model << ", Condition: " << condition << endl;
-    }
-};
-
-
-
-
-// // Function to add car objects
-// void addCars(sqlite3* db, const vector<pair<string, string>>& cars) {
-//     // Prepare and execute SQL statement for each car
-//     string sql = "INSERT INTO cars (model, year) VALUES (?, ?)";
-//     sqlite3_stmt* stmt;
-//     if (sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr) != SQLITE_OK) {
-//         cerr << "Error preparing statement for adding cars: " << sqlite3_errmsg(db) << endl;
-//         return;
-//     }
-
-//     for (const auto& car : cars) {
-//         sqlite3_bind_text(stmt, 1, car.first.c_str(), -1, SQLITE_TRANSIENT); // Model
-//         sqlite3_bind_text(stmt, 2, car.second.c_str(), -1, SQLITE_TRANSIENT); // Year
-//         if (sqlite3_step(stmt) != SQLITE_DONE) {
-//             cerr << "Error inserting car: " << sqlite3_errmsg(db) << endl;
-//         }
-//         sqlite3_reset(stmt); // Reset statement for next insertion
-//     }
-
-//     sqlite3_finalize(stmt);
-// }
-
-// // Function to add a customer
-// void addCustomer(sqlite3* db, string name, string password) {
-//     string sql = "INSERT INTO customers (name, password) VALUES (?, ?)";
-//     sqlite3_stmt* stmt;
-//     if (sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr) != SQLITE_OK) {
-//         cerr << "Error preparing statement for adding customer: " << sqlite3_errmsg(db) << endl;
-//         return;
-//     }
-
-//     sqlite3_bind_text(stmt, 1, name.c_str(), -1, SQLITE_TRANSIENT);
-//     sqlite3_bind_text(stmt, 2, password.c_str(), -1, SQLITE_TRANSIENT);
-//     if (sqlite3_step(stmt) != SQLITE_DONE) {
-//         cerr << "Error inserting customer: " << sqlite3_errmsg(db) << endl;
-//     }
-
-//     sqlite3_finalize(stmt);
-// }
 
 int main() {
+
     sqlite3* db;
     Db::connectToDatabase(&db);
 
+    CustomerDb::display(db);
+
     Manager manager("John Doe", 1, "password123");
-    vector<string> car = {"Model X", "2020"};
-    manager.addCar(car);
+    vector<string> car;
     manager.displayAllCars();
     int temp;
     cin >> temp;
-    car = {"Model Z", "2020"};
-    manager.updateCar(1, car);
-    manager.displayAllCars();
-    cin >> temp;
-    manager.deleteCar(1);
-    manager.displayAllCars();
-
-
-    
-    // cars.display(db);
-    // customers.display(db);
-    // employees.display(db);
-
-    // // Check if database file exists
-    // if (access("car_rental.db", F_OK) == 0) {
-    //     // Database exists, try opening it
-    //     if (!Db::connectToDatabase(&db)) {
-    //         return 1;
-    //     }
-    //     cout << "Database opened successfully." << endl;
-    // } else {
-    //     // Database doesn't exist, create and open it
-    //     if (!Db::connectToDatabase(&db)) {
-    //         return 1;
-    //     }
-    //     cout << "Database created and opened." << endl;
-    //     createTable(db);
-
-    //     // Add sample car data (replace with your actual data)
-    //     vector<pair<string, string>> cars = {
-    //         {"Model A", "2023"},
-    //         {"Model B", "2022"}
-    //     };
-    //     addCars(db, cars);
-
-    //     // Add a sample customer (replace with actual name and password)
-    //     addCustomer(db, "John Doe", "password123");
-    // }
+    car = {"Model Z", "2020", "0", "1", "1"};
+    manager.updateCar(temp, car);
+    manager.displayAvailableCars();
 
     cin >> temp;
 
     // Use the rentCar function
-    int userId = 1; // Assuming customer ID is retrieved after adding the customer
+    int userId = temp; // Assuming customer ID is retrieved after adding the customer
     Customer customer(userId); // Initialize customer object
     customer.rentCar();
-    manager.displayAllCars();
+    manager.displayAvailableCars();
 
     cin>>temp;
 
     customer.returnCar();
+
+    CustomerDb::display(db);
+
+    customer.clear_dues();
 
     sqlite3_close(db);
     return 0;
