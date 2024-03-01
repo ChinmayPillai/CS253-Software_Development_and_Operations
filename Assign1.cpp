@@ -3,12 +3,15 @@
 #include <string>
 #include <sqlite3.h>
 
+
 using namespace std;
 
-string const filename = "car_rental.db";
-int const rentDaysAllowed = 7;
-int const rentPerDay = 100;
-int const employeeDiscount = 0.15;
+
+#define FILENAME "car_rental.db"
+#define RENT_DAYS_ALLOWED 7
+#define RENT_PER_DAY 100
+#define EMPLOYEE_DISCOUNT 0.15
+
 
 bool askConfirmation(const string& message) {
     char choice;
@@ -17,6 +20,7 @@ bool askConfirmation(const string& message) {
     cin.ignore(); // Consume newline character
     return tolower(choice) == 'y';
 }
+
 
 class Db{
 protected:
@@ -63,7 +67,7 @@ protected:
 public:
     // Function to connect to db and check if the database connection is successful
     static bool connectToDatabase(sqlite3** db) {
-        int rc = sqlite3_open(filename.c_str(), db);
+        int rc = sqlite3_open(FILENAME, db);
         if (rc != SQLITE_OK) {
             cerr << "Error opening database: " << sqlite3_errmsg(*db) << endl;
             return false;
@@ -179,6 +183,7 @@ public:
     }
 };
 
+
 class CarDb : public Db{
 private:
     vector<vector<string>> defaultData = {
@@ -274,6 +279,16 @@ public:
         return car;
     }
 
+    static void displayCar(int id){
+        vector<string> car = searchCar(id);
+        cout << "Car Model: " << car[1] << " (" << car[2] << "), " << "ID: " << id << endl;
+        if(car[3] == "1"){
+            cout << "Available"<<endl;
+        } else {
+            cout << "Rented by: " << car[4] << " on Day: "<< car[5] <<endl;
+        }
+
+    }
 
     void add(const vector<string> car, sqlite3* db = nullptr){
         if(db == nullptr){
@@ -407,6 +422,7 @@ public:
     }
 
 };
+
 
 class CustomerDb : public Db{
     private:
@@ -565,7 +581,15 @@ public:
 
         sqlite3_finalize(stmt);
     }
+
+    static void displayCustomer(int id){
+        vector<string> cus = searchCus(id);
+        cout << "Customer Name: " << cus[1] << ", ID: " << id << endl;
+        cout << "Money: " << cus[2] << " Rented Cars: " << cus[3] <<endl;
+        cout << "Fine Due: " << cus[4] << ", Customer Record: " << cus[5] << endl;
+    }
 };
+
 
 class EmployeeDb : public Db{
     private:
@@ -726,6 +750,14 @@ public:
 
         sqlite3_finalize(stmt);
     }
+
+    static void displayEmployee(int id){
+        vector<string> cus = searchEmp(id);
+        cout << "Employee Name: " << cus[1] << ", ID: " << id << endl;
+        cout << "Money: " << cus[2] << " Rented Cars: " << cus[3] <<endl;
+        cout << "Fine Due: " << cus[4] << ", Employee Record: " << cus[5] << endl;
+        cout << "Employee Discount: " << EMPLOYEE_DISCOUNT * 100 << "%" << endl;
+    }
 };
 
 
@@ -744,8 +776,6 @@ protected:
         cout << "Name: " << name << ", ID: " << id << endl;
     }
 };
-
-
 
 
 // Class for cars
@@ -885,15 +915,10 @@ public:
         return true;
     }
 
-    void showDueDate() {
-        // Code to show due date
-    }
-
     void displayDetails() const {
         cout << "Model: " << model << ", Condition: " << condition << endl;
     }
 };
-
 
 
 // Class for manager
@@ -905,9 +930,6 @@ private:
     EmployeeDb employees;
 
 public:
-    // static int rentDays;
-    // int rentPerDay;
-    // double employeeDiscount;
 
     Manager(string n, int i, string p) : User(n, i, p) {}
 
@@ -972,7 +994,7 @@ public:
         int date;
         cout << "Enter today's date (int)"<<endl;
         cin >> date;
-        return Car::returnCar(cusId, carId, date, table, rentDaysAllowed, rentPerDay, employeeDiscount, db);
+        return Car::returnCar(cusId, carId, date, table, RENT_DAYS_ALLOWED, RENT_PER_DAY, EMPLOYEE_DISCOUNT, db);
     }
 
     static void updateDues(int cusId, int money, int dues, string table){
@@ -995,8 +1017,6 @@ public:
         cout << "Role: Manager" << endl;
     }
 };
-
-
 
 
 class RentableUser : public User {
@@ -1140,8 +1160,10 @@ public:
     
     void browseRentedCars() {
         // Code to browse available cars
+        Car::checkRents(id, table);
     }
 };
+
 
 // Class for customers
 class Customer : public RentableUser {
@@ -1190,6 +1212,7 @@ public:
     }
 };
 
+
 // Class for employees
 class Employee : public RentableUser {
 public:
@@ -1236,38 +1259,301 @@ public:
 
 
 
-
 int main() {
 
     sqlite3* db;
     Db::connectToDatabase(&db);
 
-    CustomerDb::display(db);
-
     Manager manager("John Doe", 1, "password123");
-    vector<string> car;
-    manager.displayAllCars();
-    int temp;
-    cin >> temp;
-    car = {"Model Z", "2020", "0", "1", "1"};
-    manager.updateCar(temp, car);
-    manager.displayAvailableCars();
 
-    cin >> temp;
+    cout<< "Enter your role (1/2/3): 1. Manager, 2. Customer, 3. Employee"<<endl;
+    int role;
+    cin >> role;
+    vector<string> cus;
 
-    // Use the rentCar function
-    int userId = temp; // Assuming customer ID is retrieved after adding the customer
-    Customer customer(userId); // Initialize customer object
-    customer.rentCar();
-    manager.displayAvailableCars();
+    int id;
+    string command;
 
-    cin>>temp;
+    if(role == 1){
+        cout<<"Welcome Manager"<<endl;
+        while(true){
+            cout << "Enter a command: (Type 'help' for commands list)" << endl;
+            cin >> command;
+            if (command == "addCustomer") {
+                string name;
+                int money;
+                int dues;
+                int record;
 
-    customer.returnCar();
+                cout << "Enter customer name: ";
+                cin >> name;
 
-    CustomerDb::display(db);
+                cout << "Enter customer money: ";
+                cin >> money;
 
-    customer.clear_dues();
+                cout << "Enter customer dues: ";
+                cin >> dues;
+
+                cout << "Enter customer record: ";
+                cin >> record;
+
+                vector<string> cus = {name, to_string(money), "0", to_string(dues), to_string(record)};
+                manager.addCustomer(cus);
+            } 
+            else if (command == "updateCustomer") {
+                int newId;
+                cout<< "Enter the ID of the customer you want to update: ";
+                cin >> newId;
+                vector<string> cus = CustomerDb::searchCus(newId);
+                if(cus.size() == 0){
+                    cout<<"Invalid Customer ID"<<endl;
+                    exit(1);
+                }
+                CustomerDb::displayCustomer(newId);
+                
+                cout << "Enter new customer name: (Previously: " << cus[1] << ")";
+                cin >> cus[1];
+                
+
+                cout << "Enter new customer money: (Previously: " << cus[2] << ")";
+                cin >> cus[2];
+
+                cout << "Enter new customer rentedCars: (Previously: " << cus[3] << ")";
+                cin >> cus[3];
+
+                cout << "Enter new customer dues: (Previously: " << cus[4] << ")";
+                cin >> cus[4];
+
+                cout << "Enter new customer record: (Previously: " << cus[5] << ")";
+                cin >> cus[5];
+
+                manager.updateCustomer(1, cus);
+            } 
+            else if (command == "deleteCustomer") {
+                int newId;
+                cout<< "Enter the ID of the customer you want to delete: ";
+                cin >> newId;
+                manager.deleteCustomer(newId);
+            } 
+            else if (command == "addEmployee") {
+                string name;
+                int money;
+                int dues;
+                int record;
+
+                cout << "Enter employee name: ";
+                cin >> name;
+
+                cout << "Enter employee money: ";
+                cin >> money;
+
+                cout << "Enter employee dues: ";
+                cin >> dues;
+
+                cout << "Enter employee record: ";
+                cin >> record;
+
+                vector<string> cus = {name, to_string(money), "0", to_string(dues), to_string(record)};
+                manager.addEmployee(cus);
+            } 
+            else if (command == "updateEmployee") {
+                int newId;
+                cout<< "Enter the ID of the employee you want to update: ";
+                cin >> newId;
+                vector<string> cus = EmployeeDb::searchEmp(newId);
+                if(cus.size() == 0){
+                    cout<<"Invalid Employee ID"<<endl;
+                    exit(1);
+                }
+                EmployeeDb::displayEmployee(newId);
+                
+                cout << "Enter new employee name: (Previously: " << cus[1] << ")";
+                cin >> cus[1];
+                
+
+                cout << "Enter new employee money: (Previously: " << cus[2] << ")";
+                cin >> cus[2];
+
+                cout << "Enter new employee rentedCars: (Previously: " << cus[3] << ")";
+                cin >> cus[3];
+
+                cout << "Enter new employee dues: (Previously: " << cus[4] << ")";
+                cin >> cus[4];
+
+                cout << "Enter new employee record: (Previously: " << cus[5] << ")";
+                cin >> cus[5];
+
+                manager.updateEmployee(newId, cus);
+                
+            } 
+            else if (command == "deleteEmployee") {
+                int newId;
+                cout<< "Enter the ID of the employee you want to delete: ";
+                cin >> newId;
+                manager.deleteEmployee(newId);
+            } 
+            else if (command == "addCar") {
+                string model;
+                string year;
+
+                cout << "Enter car model: ";
+                cin >> model;
+                cout << "Enter car year: ";
+                cin >> year;
+
+                vector<string> car = {model, year, "1", "0", "0"};
+                manager.addCar(car);
+            } 
+            else if (command == "updateCar") {
+                int newId;
+                cout<< "Enter the ID of the car you want to update: ";
+                cin >> newId;
+                vector<string> car = CarDb::searchCar(newId);
+                if(car.size() == 0){
+                    cout<<"Invalid Car ID"<<endl;
+                    exit(1);
+                }
+                CarDb::displayCar(newId);
+
+                cout << "Enter new car model: (Previously: " << car[1] << ")";
+                cin >> car[1];
+                cout << "Enter new car year: (Previously: " << car[2] << ")";
+                cin >> car[2];
+                cout << "Enter new car available: (Previously: " << car[3] << ")";
+                cin >> car[3];
+                cout << "Enter new car rentedBy: (Previously: " << car[4] << ")";
+                cin >> car[4];
+                cout << "Enter new car rentedOn: (Previously: " << car[5] << ")";
+                cin >> car[5];
+
+                manager.updateCar(newId, car);
+            } 
+            else if (command == "deleteCar") {
+                int newId;
+                cout<< "Enter the ID of the car you want to delete: ";
+                cin >> newId;
+                manager.deleteCar(newId);
+            } 
+            else if (command == "displayAvailableCars") {
+                manager.displayAvailableCars();
+            } 
+            else if (command == "displayAllCars") {
+                manager.displayAllCars();
+            } 
+            else if (command == "help"){
+                cout<<endl;
+                cout << "Commands: "<<endl;
+                cout << "-----------------"<<endl;
+                cout << "addCustomer: Add a customer."<<endl;
+                cout << "updateCustomer: Update a customer."<<endl;
+                cout << "deleteCustomer: Delete a customer."<<endl;
+                cout << "addEmployee: Add an employee."<<endl;
+                cout << "updateEmployee: Update an employee."<<endl;
+                cout << "deleteEmployee: Delete an employee."<<endl;
+                cout << "addCar: Add a car."<<endl;
+                cout << "updateCar: Update a car."<<endl;
+                cout << "deleteCar: Delete a car."<<endl;
+                cout << "exit: Exit the program."<<endl;
+            } 
+            else if (command == "exit") {
+                break;
+            }
+            else {
+                std::cout << "Invalid command." << std::endl;
+            }
+        }
+    }
+    else if(role == 2){
+        cout<<"Welcome Customer"<<endl;
+        cout << "Enter your ID: ";
+        id;
+        cin >> id;
+        cus = CustomerDb::searchCus(id);
+        if(cus.size() == 0){
+            cout<<"Invalid Customer ID"<<endl;
+            exit(1);
+        }
+        Customer customer(id);
+        while (true) {
+            std::cout << "Enter a command: (Type 'help' for commands list)" << endl;
+            std::cin >> command;
+
+            if (command == "myDetails") {
+                CustomerDb::displayCustomer(id);
+            } else if (command == "rentCar") {
+                customer.rentCar();
+            } else if (command == "returnCar") {
+                customer.returnCar();
+            } else if (command == "clearDues") {
+                customer.clear_dues();
+            }else if(command == "displayAvailableCars"){
+                manager.displayAvailableCars();
+            }else if (command == "currentlyRentedCars") {
+                customer.browseRentedCars();
+            }else if (command == "help"){
+                cout<<endl;
+                cout << "Commands: "<<endl;
+                cout << "-----------------"<<endl;
+                cout << "myDetails: Display your details."<<endl;
+                cout << "rentCar: Rent a car."<<endl;
+                cout << "returnCar: Return a car."<<endl;
+                cout << "clearDues: Clear your dues."<<endl;
+                cout << "displayAvailableCars: Display available cars."<<endl;
+                cout << "currentlyRentedCars: Display currently rented cars."<<endl;
+                cout << "exit: Exit the program."<<endl; 
+            } else if (command == "exit") {
+                break;
+            }else {
+                std::cout << "Invalid command." << std::endl;
+            }
+        }
+    }else if (role == 3){
+        cout<<"Welcome Employee"<<endl;
+        cout << "Enter your ID: ";
+        id;
+        cin >> id;
+        cus = EmployeeDb::searchEmp(id);
+        if(cus.size() == 0){
+            cout<<"Invalid Employee ID"<<endl;
+            exit(1);
+        }
+        Employee employee(id);
+        while (true) {
+            std::cout << "Enter a command: (Type 'help' for commands list)" << endl;
+            std::cin >> command;
+
+            if (command == "myDetails") {
+                EmployeeDb::displayEmployee(id);
+            } else if (command == "rentCar") {
+                employee.rentCar();
+            } else if (command == "returnCar") {
+                employee.returnCar();
+            } else if (command == "clearDues") {
+                employee.clear_dues();
+            }else if(command == "displayAvailableCars"){
+                manager.displayAvailableCars();
+            }else if (command == "currentlyRentedCars") {
+                employee.browseRentedCars();
+            }else if (command == "help"){
+                cout<<endl;
+                cout << "Commands: "<<endl;
+                cout << "-----------------"<<endl;
+                cout << "myDetails: Display your details."<<endl;
+                cout << "rentCar: Rent a car."<<endl;
+                cout << "returnCar: Return a car."<<endl;
+                cout << "clearDues: Clear your dues."<<endl;
+                cout << "displayAvailableCars: Display available cars."<<endl;
+                cout << "currentlyRentedCars: Display currently rented cars."<<endl;
+                cout << "exit: Exit the program."<<endl; 
+            } else if (command == "exit") {
+                break;
+            }else {
+                std::cout << "Invalid command." << std::endl;
+            }
+        }
+    }else{
+        cout << "Invalid role." << endl;
+    }
 
     sqlite3_close(db);
     return 0;
