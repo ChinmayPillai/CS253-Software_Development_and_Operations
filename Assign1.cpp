@@ -870,45 +870,45 @@ public:
 
 
 
-// Function to add car objects
-void addCars(sqlite3* db, const vector<pair<string, string>>& cars) {
-    // Prepare and execute SQL statement for each car
-    string sql = "INSERT INTO cars (model, year) VALUES (?, ?)";
-    sqlite3_stmt* stmt;
-    if (sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr) != SQLITE_OK) {
-        cerr << "Error preparing statement for adding cars: " << sqlite3_errmsg(db) << endl;
-        return;
-    }
+// // Function to add car objects
+// void addCars(sqlite3* db, const vector<pair<string, string>>& cars) {
+//     // Prepare and execute SQL statement for each car
+//     string sql = "INSERT INTO cars (model, year) VALUES (?, ?)";
+//     sqlite3_stmt* stmt;
+//     if (sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr) != SQLITE_OK) {
+//         cerr << "Error preparing statement for adding cars: " << sqlite3_errmsg(db) << endl;
+//         return;
+//     }
 
-    for (const auto& car : cars) {
-        sqlite3_bind_text(stmt, 1, car.first.c_str(), -1, SQLITE_TRANSIENT); // Model
-        sqlite3_bind_text(stmt, 2, car.second.c_str(), -1, SQLITE_TRANSIENT); // Year
-        if (sqlite3_step(stmt) != SQLITE_DONE) {
-            cerr << "Error inserting car: " << sqlite3_errmsg(db) << endl;
-        }
-        sqlite3_reset(stmt); // Reset statement for next insertion
-    }
+//     for (const auto& car : cars) {
+//         sqlite3_bind_text(stmt, 1, car.first.c_str(), -1, SQLITE_TRANSIENT); // Model
+//         sqlite3_bind_text(stmt, 2, car.second.c_str(), -1, SQLITE_TRANSIENT); // Year
+//         if (sqlite3_step(stmt) != SQLITE_DONE) {
+//             cerr << "Error inserting car: " << sqlite3_errmsg(db) << endl;
+//         }
+//         sqlite3_reset(stmt); // Reset statement for next insertion
+//     }
 
-    sqlite3_finalize(stmt);
-}
+//     sqlite3_finalize(stmt);
+// }
 
-// Function to add a customer
-void addCustomer(sqlite3* db, string name, string password) {
-    string sql = "INSERT INTO customers (name, password) VALUES (?, ?)";
-    sqlite3_stmt* stmt;
-    if (sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr) != SQLITE_OK) {
-        cerr << "Error preparing statement for adding customer: " << sqlite3_errmsg(db) << endl;
-        return;
-    }
+// // Function to add a customer
+// void addCustomer(sqlite3* db, string name, string password) {
+//     string sql = "INSERT INTO customers (name, password) VALUES (?, ?)";
+//     sqlite3_stmt* stmt;
+//     if (sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr) != SQLITE_OK) {
+//         cerr << "Error preparing statement for adding customer: " << sqlite3_errmsg(db) << endl;
+//         return;
+//     }
 
-    sqlite3_bind_text(stmt, 1, name.c_str(), -1, SQLITE_TRANSIENT);
-    sqlite3_bind_text(stmt, 2, password.c_str(), -1, SQLITE_TRANSIENT);
-    if (sqlite3_step(stmt) != SQLITE_DONE) {
-        cerr << "Error inserting customer: " << sqlite3_errmsg(db) << endl;
-    }
+//     sqlite3_bind_text(stmt, 1, name.c_str(), -1, SQLITE_TRANSIENT);
+//     sqlite3_bind_text(stmt, 2, password.c_str(), -1, SQLITE_TRANSIENT);
+//     if (sqlite3_step(stmt) != SQLITE_DONE) {
+//         cerr << "Error inserting customer: " << sqlite3_errmsg(db) << endl;
+//     }
 
-    sqlite3_finalize(stmt);
-}
+//     sqlite3_finalize(stmt);
+// }
 
 int main() {
     sqlite3* db;
@@ -917,6 +917,14 @@ int main() {
     Manager manager("John Doe", 1, "password123");
     vector<string> car = {"Model X", "2020"};
     manager.addCar(car);
+    manager.displayAllCars();
+    int temp;
+    cin >> temp;
+    car = {"Model Z", "2020"};
+    manager.updateCar(1, car);
+    manager.displayAllCars();
+    cin >> temp;
+    manager.deleteCar(1);
     manager.displayAllCars();
 
     
