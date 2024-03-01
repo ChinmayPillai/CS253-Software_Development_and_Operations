@@ -16,9 +16,6 @@ bool askConfirmation(const string& message) {
 string filename = "car_rental.db";
 
 class Db{
-private:
-    
-    friend class Manager;
 
 protected:
     string tablename;
@@ -61,9 +58,22 @@ protected:
         }
     }
 
+public:
+    // Function to connect to db and check if the database connection is successful
+    static bool connectToDatabase(sqlite3** db) {
+        int rc = sqlite3_open(filename.c_str(), db);
+        if (rc != SQLITE_OK) {
+            cerr << "Error opening database: " << sqlite3_errmsg(*db) << endl;
+            return false;
+        }
+        return true;
+    }
 
-    void deleteRecord(sqlite3* db, int id){
-        if (search(db, id)) {
+    void deleteRecord(int id, sqlite3* db = nullptr){
+        if(db == nullptr){
+            if (!connectToDatabase(&db)) return;
+        }
+        if (search(id, db)) {
             string sql = "DELETE FROM " + tablename + " WHERE id = ?;";
 
             sqlite3_stmt* stmt;
@@ -84,7 +94,10 @@ protected:
         }
     }
 
-    bool search(sqlite3* db, int id) {
+    bool search(int id, sqlite3* db = nullptr) {
+        if(db == nullptr){
+            if (!connectToDatabase(&db)) return false;
+        }
         string sql = "SELECT EXISTS (SELECT 1 FROM " + tablename + " WHERE id = ?);";
 
         sqlite3_stmt* stmt;
@@ -109,22 +122,11 @@ protected:
         sqlite3_finalize(stmt);
         return exists;
     }
-
-public:
-    // Function to connect to db and check if the database connection is successful
-    static bool connectToDatabase(sqlite3** db) {
-        int rc = sqlite3_open(filename.c_str(), db);
-        if (rc != SQLITE_OK) {
-            cerr << "Error opening database: " << sqlite3_errmsg(*db) << endl;
-            return false;
-        }
-        return true;
-    }
 };
 
 class CarDb : public Db{
 private:
-    vector<pair<string, string>> defaultData = {
+    vector<vector<string>> defaultData = {
         {"Model A", "2023"},
         {"Model B", "2022"},
         {"Model C", "2021"},
@@ -135,55 +137,12 @@ private:
     void load(sqlite3* db){
         if (isTableEmpty(db, tablename)) {
             cout << "Loading cars..." << endl;
-            for(pair<string, string> data : defaultData){
-                add(db, data);
+            for(vector<string> data : defaultData){
+                add(data, db);
             }
         }
     }
 
-    void add(sqlite3* db, const pair<string, string> car){
-        string sql = "INSERT INTO cars (model, year) VALUES (?, ?)";
-        sqlite3_stmt* stmt;
-        if (sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr) != SQLITE_OK) {
-            cerr << "Error preparing statement for adding cars: " << sqlite3_errmsg(db) << endl;
-            return;
-        }
-        
-        // Bind the values of t to the prepared statement
-        sqlite3_bind_text(stmt, 1, car.first.c_str(), -1, SQLITE_TRANSIENT); // Model
-        sqlite3_bind_text(stmt, 2, car.second.c_str(), -1, SQLITE_TRANSIENT); // Year
-        
-        // Execute the statement
-        if (sqlite3_step(stmt) != SQLITE_DONE) {
-            cerr << "Error inserting " << tablename << ": " << sqlite3_errmsg(db) << endl;
-        }
-        cout<< "Car "<< car.first <<"("<<car.second<<")" <<" added successfully." << endl;
-        sqlite3_finalize(stmt);
-    }
-
-    void update(sqlite3* db, int id, const pair<string, string>& car){
-        if (search(db, id)) {
-            string sql = "UPDATE " + tablename + " SET model = ?, year = ? WHERE id = ?;";
-
-            sqlite3_stmt* stmt;
-            if (sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr) != SQLITE_OK) {
-                cerr << "Error preparing statement for updating: " << sqlite3_errmsg(db) << endl;
-                return;
-            }
-
-            // Bind the values of car to the prepared statement
-            sqlite3_bind_text(stmt, 1, car.first.c_str(), -1, SQLITE_TRANSIENT); // Model
-            sqlite3_bind_text(stmt, 2, car.second.c_str(), -1, SQLITE_TRANSIENT); // Year
-            sqlite3_bind_int(stmt, 3, id); // ID
-
-            // Execute the statement
-            if (sqlite3_step(stmt) != SQLITE_DONE) {
-                cerr << "Error updating car: " << sqlite3_errmsg(db) << endl;
-            }
-
-            sqlite3_finalize(stmt);
-        }
-    }
 
 public:
     CarDb(){
@@ -196,7 +155,61 @@ public:
         load(db);
     }
 
-    void display(sqlite3* db){
+
+    void add(const vector<string> car, sqlite3* db = nullptr){
+        if(db == nullptr){
+            if (!connectToDatabase(&db)) return;
+        }
+        string sql = "INSERT INTO cars (model, year) VALUES (?, ?)";
+        sqlite3_stmt* stmt;
+        if (sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr) != SQLITE_OK) {
+            cerr << "Error preparing statement for adding cars: " << sqlite3_errmsg(db) << endl;
+            return;
+        }
+        
+        // Bind the values of t to the prepared statement
+        sqlite3_bind_text(stmt, 1, car[0].c_str(), -1, SQLITE_TRANSIENT); // Model
+        sqlite3_bind_text(stmt, 2, car[1].c_str(), -1, SQLITE_TRANSIENT); // Year
+        
+        // Execute the statement
+        if (sqlite3_step(stmt) != SQLITE_DONE) {
+            cerr << "Error inserting " << tablename << ": " << sqlite3_errmsg(db) << endl;
+        }
+        cout<< "Car "<< car[0] <<"("<<car[1]<<")" <<" added successfully." << endl;
+        sqlite3_finalize(stmt);
+    }
+
+    void update(int id, const vector<string>& car, sqlite3* db = nullptr){
+        if(db == nullptr){
+            if (!connectToDatabase(&db)) return;
+        }
+        if (search(id, db)) {
+            string sql = "UPDATE " + tablename + " SET model = ?, year = ? WHERE id = ?;";
+
+            sqlite3_stmt* stmt;
+            if (sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr) != SQLITE_OK) {
+                cerr << "Error preparing statement for updating: " << sqlite3_errmsg(db) << endl;
+                return;
+            }
+
+            // Bind the values of car to the prepared statement
+            sqlite3_bind_text(stmt, 1, car[0].c_str(), -1, SQLITE_TRANSIENT); // Model
+            sqlite3_bind_text(stmt, 2, car[1].c_str(), -1, SQLITE_TRANSIENT); // Year
+            sqlite3_bind_int(stmt, 3, id); // ID
+
+            // Execute the statement
+            if (sqlite3_step(stmt) != SQLITE_DONE) {
+                cerr << "Error updating car: " << sqlite3_errmsg(db) << endl;
+            }
+
+            sqlite3_finalize(stmt);
+        }
+    }
+
+    void display(sqlite3* db = nullptr){
+        if(db == nullptr){
+            if (!connectToDatabase(&db)) return;
+        }
 
         string sql = "SELECT * FROM cars WHERE available=1";
         sqlite3_stmt* stmt;
@@ -232,24 +245,37 @@ public:
 class CustomerDb : public Db{
     private:
     vector<vector<string>> defaultData = {
-        {"Linus","5000"},
-        {"Elon","50000"},
-        {"Steve","10000"},
-        {"Bill","25000"},
-        {"John","100"}
+        {"Linus","5000", "0", "0", "5"},
+        {"Elon","50000", "0", "0", "10"},
+        {"Steve","10000", "0", "0", "7"},
+        {"Bill","25000", "0", "0", "8"},
+        {"John","100", "0", "0", "3"}
     };
 
     void load(sqlite3* db){
         if (isTableEmpty(db, tablename)) {
             cout << "Loading customers..." << endl;
             for(vector<string> data : defaultData){
-                add(db, data);
+                add(data, db);
             }
         }
     }
 
-    void add(sqlite3* db, const vector<string> cus){
-        string sql = "INSERT INTO customers (name, money) VALUES (?, ?)";
+public:
+    CustomerDb(){
+        tablename = "customers";
+        sqlite3* db;
+        connectToDatabase(&db);
+        string sql= "CREATE TABLE IF NOT EXISTS customers (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, money INTEGER NOT NULL DEFAULT 5000, rentedCars INTEGER NOT NULL DEFAULT 0, fineDue INTEGER NOT NULL DEFAULT 0, customerRecord INTEGER NOT NULL DEFAULT 5)";
+        createTable(db, sql);
+        load(db);
+    }
+
+    void add(const vector<string> cus, sqlite3* db = nullptr){
+        if(db == nullptr){
+            if (!connectToDatabase(&db)) return;
+        }
+        string sql = "INSERT INTO customers (name, money, rentedCars, fineDue, customerRecord) VALUES (?, ?, ?, ?, ?)";
         sqlite3_stmt* stmt;
         if (sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr) != SQLITE_OK) {
             cerr << "Error preparing statement for adding customers: " << sqlite3_errmsg(db) << endl;
@@ -259,6 +285,9 @@ class CustomerDb : public Db{
         // Bind the values of t to the prepared statement
         sqlite3_bind_text(stmt, 1, cus[0].c_str(), -1, SQLITE_TRANSIENT); // Name
         sqlite3_bind_text(stmt, 2, cus[1].c_str(), -1, SQLITE_TRANSIENT); // Money
+        sqlite3_bind_text(stmt, 3, cus[2].c_str(), -1, SQLITE_TRANSIENT); // rentedCars
+        sqlite3_bind_text(stmt, 4, cus[3].c_str(), -1, SQLITE_TRANSIENT); // fineDue
+        sqlite3_bind_text(stmt, 5, cus[4].c_str(), -1, SQLITE_TRANSIENT); // record
         
         // Execute the statement
         if (sqlite3_step(stmt) != SQLITE_DONE) {
@@ -268,8 +297,11 @@ class CustomerDb : public Db{
         sqlite3_finalize(stmt);
     }
 
-    void update(sqlite3* db, int id, const vector<string>& cus){
-        if (search(db, id)) {
+    void update(int id, const vector<string>& cus, sqlite3* db = nullptr){
+        if(db == nullptr){
+            if (!connectToDatabase(&db)) return;
+        }
+        if (search(id, db)) {
             string sql = "UPDATE " + tablename + " SET name = ?, money = ?, rentedCars = ?, fineDue = ?, customerRecord = ? WHERE id = ?;";
 
             sqlite3_stmt* stmt;
@@ -295,17 +327,10 @@ class CustomerDb : public Db{
         }
     }
 
-public:
-    CustomerDb(){
-        tablename = "customers";
-        sqlite3* db;
-        connectToDatabase(&db);
-        string sql= "CREATE TABLE IF NOT EXISTS customers (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, money INTEGER NOT NULL DEFAULT 5000, rentedCars INTEGER NOT NULL DEFAULT 0, fineDue INTEGER NOT NULL DEFAULT 0, customerRecord INTEGER NOT NULL DEFAULT 5)";
-        createTable(db, sql);
-        load(db);
-    }
-
-    void display(sqlite3* db){
+    void display(sqlite3* db = nullptr){
+        if(db == nullptr){
+            if (!connectToDatabase(&db)) return;
+        }
 
         string sql = "SELECT * FROM customers";
         sqlite3_stmt* stmt;
@@ -344,24 +369,39 @@ public:
 class EmployeeDb : public Db{
     private:
     vector<vector<string>> defaultData = {
-        {"Emp1","500"},
-        {"Emp2","5000"},
-        {"Emp3","1000"},
-        {"Emp4","2500"},
-        {"Emp5","10"}
+        {"Emp1","500", "0", "0", "7"},
+        {"Emp2","5000","0","0","5"},
+        {"Emp3","1000","0","0","6"},
+        {"Emp4","2500","0","0","8"},
+        {"Emp5","10","0","0","3"}
     };
 
     void load(sqlite3* db){
         if (isTableEmpty(db, tablename)) {
             cout << "Loading employees..." << endl;
             for(vector<string> data : defaultData){
-                add(db, data);
+                add(data, db);
             }
         }
     }
 
-    void add(sqlite3* db, const vector<string> emp){
-        string sql = "INSERT INTO employees (name, money) VALUES (?, ?)";
+
+public:
+    EmployeeDb(){
+        tablename = "employees";
+        sqlite3* db;
+        connectToDatabase(&db);
+        string sql= "CREATE TABLE IF NOT EXISTS employees (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, money INTEGER NOT NULL DEFAULT 500, rentedCars INTEGER NOT NULL DEFAULT 0, fineDue INTEGER NOT NULL DEFAULT 0, employeeRecord INTEGER NOT NULL DEFAULT 7)";
+        createTable(db, sql);
+        load(db);
+    }
+
+
+    void add(const vector<string> emp, sqlite3* db = nullptr){
+        if(db == nullptr){
+            if (!connectToDatabase(&db)) return;
+        }
+        string sql = "INSERT INTO employees (name, money, rentedCars, fineDue, employeeRecord) VALUES (?, ?, ?, ?, ?)";
         sqlite3_stmt* stmt;
         if (sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr) != SQLITE_OK) {
             cerr << "Error preparing statement for adding employees: " << sqlite3_errmsg(db) << endl;
@@ -371,6 +411,9 @@ class EmployeeDb : public Db{
         // Bind the values of t to the prepared statement
         sqlite3_bind_text(stmt, 1, emp[0].c_str(), -1, SQLITE_TRANSIENT); // Name
         sqlite3_bind_text(stmt, 2, emp[1].c_str(), -1, SQLITE_TRANSIENT); // Money
+        sqlite3_bind_text(stmt, 3, emp[2].c_str(), -1, SQLITE_TRANSIENT); // rentedCars
+        sqlite3_bind_text(stmt, 4, emp[3].c_str(), -1, SQLITE_TRANSIENT); // fineDue
+        sqlite3_bind_text(stmt, 5, emp[4].c_str(), -1, SQLITE_TRANSIENT); // record
         
         // Execute the statement
         if (sqlite3_step(stmt) != SQLITE_DONE) {
@@ -380,8 +423,11 @@ class EmployeeDb : public Db{
         sqlite3_finalize(stmt);
     }
 
-    void update(sqlite3* db, int id, const vector<string>& emp){
-        if (search(db, id)) {
+    void update(int id, const vector<string>& emp, sqlite3* db = nullptr){
+        if(db == nullptr){
+            if (!connectToDatabase(&db)) return;
+        }
+        if (search(id, db)) {
             string sql = "UPDATE " + tablename + " SET name = ?, money = ?, rentedCars = ?, fineDue = ?, employeeRecord = ? WHERE id = ?;";
 
             sqlite3_stmt* stmt;
@@ -407,17 +453,10 @@ class EmployeeDb : public Db{
         }
     }
 
-public:
-    EmployeeDb(){
-        tablename = "employees";
-        sqlite3* db;
-        connectToDatabase(&db);
-        string sql= "CREATE TABLE IF NOT EXISTS employees (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, money INTEGER NOT NULL DEFAULT 500, rentedCars INTEGER NOT NULL DEFAULT 0, fineDue INTEGER NOT NULL DEFAULT 0, employeeRecord INTEGER NOT NULL DEFAULT 7)";
-        createTable(db, sql);
-        load(db);
-    }
-
-    void display(sqlite3* db){
+    void display(sqlite3* db = nullptr){
+        if(db == nullptr){
+            if (!connectToDatabase(&db)) return;
+        }
 
         string sql = "SELECT * FROM employees";
         sqlite3_stmt* stmt;
@@ -738,47 +777,63 @@ public:
 
 // Class for manager
 class Manager : public User {
+
+private:
+    CarDb cars;
+    CustomerDb customers;
+    EmployeeDb employees;
+
 public:
     Manager(string n, int i, string p) : User(n, i, p) {}
 
-    void addCustomer() {
+    void addCustomer(vector<string> cus) {
         // Code to add a customer
+        customers.add(cus);
     }
 
-    void updateCustomer() {
+    void updateCustomer(int id, const vector<string>& cus) {
         // Code to update a customer
+        customers.update(id, cus);
     }
 
-    void deleteCustomer() {
+    void deleteCustomer(int id) {
         // Code to delete a customer
+        customers.deleteRecord(id);
     }
 
-    void addEmployee() {
+    void addEmployee(vector<string> emp) {
         // Code to add an employee
+        employees.add(emp);
     }
 
-    void updateEmployee() {
+    void updateEmployee(int id, const vector<string>& emp) {
         // Code to update an employee
+        employees.update(id, emp);
     }
 
-    void deleteEmployee() {
+    void deleteEmployee(int id) {
         // Code to delete an employee
+        employees.deleteRecord(id);
     }
 
-    void addCar() {
+    void addCar(vector<string> car) {
         // Code to add a car
+        cars.add(car);
     }
 
-    void updateCar() {
+    void updateCar(int id, const vector<string>& car) {
         // Code to update a car
+        cars.update(id, car);
     }
 
-    void deleteCar() {
+    void deleteCar(int id) {
         // Code to delete a car
+        cars.deleteRecord(id);
     }
 
     void displayAllCars() {
         // Code to display all cars
+        cars.display();
     }
 
     void displayDetails() const override {
@@ -859,12 +914,15 @@ int main() {
     sqlite3* db;
     Db::connectToDatabase(&db);
 
-    CarDb cars;
-    CustomerDb customers;
-    EmployeeDb employees;
-    cars.display(db);
-    customers.display(db);
-    employees.display(db);
+    Manager manager("John Doe", 1, "password123");
+    vector<string> car = {"Model X", "2020"};
+    manager.addCar(car);
+    manager.displayAllCars();
+
+    
+    // cars.display(db);
+    // customers.display(db);
+    // employees.display(db);
 
     // // Check if database file exists
     // if (access("car_rental.db", F_OK) == 0) {
