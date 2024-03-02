@@ -214,11 +214,11 @@ class CarDb : public Db
 {
 private:
     vector<vector<string>> defaultData = {
-        {"Model A", "2023"},
-        {"Model B", "2022"},
-        {"Model C", "2021"},
-        {"Model D", "2020"},
-        {"Model E", "2019"}};
+        {"Lambo Aventador", "2023"},
+        {"Ferrari F8", "2022"},
+        {"Koenigsegg Agera", "2021"},
+        {"Bugatti Veyron", "2020"},
+        {"Rolls Royce Spectre", "2019"}};
 
     void load(sqlite3 *db)
     {
