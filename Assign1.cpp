@@ -1223,6 +1223,7 @@ public:
         vector<int> rentedCars = Manager::checkRents(id, table, db);
         if (rentedCars.size() == 0)
         {
+            cout << "You haven't rented any cars." << endl;
             return;
         }
 
@@ -1258,71 +1259,71 @@ public:
         sqlite3_close(db);
     }
 
-    void clear_dues(int money)
-    {
-        // Code to clear dues
-        sqlite3 *db;
-        if (!Db::connectToDatabase(&db))
-            return;
+    // void clear_dues(int money)
+    // {
+    //     // Code to clear dues
+    //     sqlite3 *db;
+    //     if (!Db::connectToDatabase(&db))
+    //         return;
 
-        // Check if customer has any dues
-        string sql = "SELECT * FROM " + table + " WHERE id=? AND (fineDue>0)"; // Adjust condition based on your criteria for having dues
-        sqlite3_stmt *stmt;
-        if (sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr) != SQLITE_OK)
-        {
-            cerr << "Error preparing statement: " << sqlite3_errmsg(db) << endl;
-            sqlite3_finalize(stmt);
-            sqlite3_close(db);
-            return;
-        }
+    //     // Check if customer has any dues
+    //     string sql = "SELECT * FROM " + table + " WHERE id=? AND (fineDue>0)"; // Adjust condition based on your criteria for having dues
+    //     sqlite3_stmt *stmt;
+    //     if (sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr) != SQLITE_OK)
+    //     {
+    //         cerr << "Error preparing statement: " << sqlite3_errmsg(db) << endl;
+    //         sqlite3_finalize(stmt);
+    //         sqlite3_close(db);
+    //         return;
+    //     }
 
-        sqlite3_bind_int(stmt, 1, id);
+    //     sqlite3_bind_int(stmt, 1, id);
 
-        if (sqlite3_step(stmt) != SQLITE_ROW)
-        {
-            cout << "You don't have any outstanding dues." << endl;
-            sqlite3_finalize(stmt);
-            sqlite3_close(db);
-            return;
-        }
+    //     if (sqlite3_step(stmt) != SQLITE_ROW)
+    //     {
+    //         cout << "You don't have any outstanding dues." << endl;
+    //         sqlite3_finalize(stmt);
+    //         sqlite3_close(db);
+    //         return;
+    //     }
 
-        // Display current dues and ask for confirmation
-        double dues = sqlite3_column_double(stmt, 1);   // Assuming fineDue is stored in the 2nd column of the customer table
-        double record = sqlite3_column_double(stmt, 2); // Assuming customerRecord is stored in the 3rd column
-        cout << "Your current dues:" << endl;
-        cout << "- Dues: $" << dues << endl;
-        cout << "- Customer Record: " << record << endl;
+    //     // Display current dues and ask for confirmation
+    //     double dues = sqlite3_column_double(stmt, 1);   // Assuming fineDue is stored in the 2nd column of the customer table
+    //     double record = sqlite3_column_double(stmt, 2); // Assuming customerRecord is stored in the 3rd column
+    //     cout << "Your current dues:" << endl;
+    //     cout << "- Dues: $" << dues << endl;
+    //     cout << "- Customer Record: " << record << endl;
 
-        if (!askConfirmation("Do you want to clear your dues?"))
-        {
-            sqlite3_finalize(stmt);
-            sqlite3_close(db);
-            return;
-        }
+    //     if (!askConfirmation("Do you want to clear your dues?"))
+    //     {
+    //         sqlite3_finalize(stmt);
+    //         sqlite3_close(db);
+    //         return;
+    //     }
 
-        // Update customer record (assuming it can be improved through payment)
-        sql = "UPDATE customers SET customerRecord=1 WHERE id=?"; // Adjust update logic based on your criteria for improving customer record
-        sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr);
-        sqlite3_bind_int(stmt, 1, id);
-        if (sqlite3_step(stmt) != SQLITE_DONE)
-        {
-            cerr << "Error updating customer record: " << sqlite3_errmsg(db) << endl;
-        }
+    //     // Update customer record (assuming it can be improved through payment)
+    //     sql = "UPDATE customers SET customerRecord=1 WHERE id=?"; // Adjust update logic based on your criteria for improving customer record
+    //     sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr);
+    //     sqlite3_bind_int(stmt, 1, id);
+    //     if (sqlite3_step(stmt) != SQLITE_DONE)
+    //     {
+    //         cerr << "Error updating customer record: " << sqlite3_errmsg(db) << endl;
+    //     }
 
-        // Reset fine due
-        sql = "UPDATE customers SET fineDue=0 WHERE id=?";
-        sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr);
-        sqlite3_bind_int(stmt, 1, id);
-        if (sqlite3_step(stmt) != SQLITE_DONE)
-        {
-            cerr << "Error resetting fine due: " << sqlite3_errmsg(db) << endl;
-        }
+    //     // Reset fine due
+    //     sql = "UPDATE customers SET fineDue=0 WHERE id=?";
+    //     sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr);
+    //     sqlite3_bind_int(stmt, 1, id);
+    //     if (sqlite3_step(stmt) != SQLITE_DONE)
+    //     {
+    //         cerr << "Error resetting fine due: " << sqlite3_errmsg(db) << endl;
+    //     }
 
-        cout << "Dues cleared successfully." << endl;
+    //     cout << "Dues cleared successfully." << endl;
 
-        sqlite3_finalize(stmt);
-        sqlite3_close(db);
-    }
+    //     sqlite3_finalize(stmt);
+    //     sqlite3_close(db);
+    // }
 
     void browseRentedCars()
     {
