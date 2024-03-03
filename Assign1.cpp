@@ -16,6 +16,11 @@ bool askConfirmation(const string &message)
     cout << message << " (y/n): ";
     cin >> choice;
     cin.ignore(); // Consume newline character
+    while(tolower(choice) != 'y' && tolower(choice) != 'n'){
+        cout << "Invalid input. Please enter y or n: ";
+        cin >> choice;
+        cin.ignore(); // Consume newline character
+    }
     return tolower(choice) == 'y';
 }
 
@@ -107,9 +112,12 @@ public:
             if (sqlite3_step(stmt) != SQLITE_DONE)
             {
                 cerr << "Error executing statement: " << sqlite3_errmsg(db) << endl;
+                return;
             }
-
+            cout << "Record with ID " << id << " deleted successfully." << endl;
             sqlite3_finalize(stmt);
+        }else{
+            cout << "Record not found." << endl;
         }
     }
 
@@ -214,7 +222,7 @@ class CarDb : public Db
 {
 private:
     vector<vector<string>> defaultData = {
-        {"Lambo Aventador", "2023", "1", "-1", "-1", "100"},
+        {"Lamborghini Aventador", "2023", "1", "-1", "-1", "100"},
         {"Ferrari F8", "2022", "1", "-1", "-1", "100"},
         {"Porsche 911", "2021", "1", "-1", "-1", "100"},
         {"Koenigsegg Agera", "2021", "1", "-1", "-1", "100"},
@@ -322,15 +330,14 @@ public:
     static void displayCar(int id)
     {
         vector<string> car = searchCar(id);
-        cout << "Car Model: " << car[1] << " (" << car[2] << "), "
-             << "ID: " << id << endl;
+        cout << "Car Model: " << car[1] << " (" << car[2] << "), " << "ID: " << id << ", ";
         if (car[3] == "1")
         {
-            cout << "Available" << endl;
+            cout << "Available, ";
         }
         else
         {
-            cout << "Rented by: " << car[4] << " on Day: " << car[5] << endl;
+            cout << "Rented by: " << car[4] << ", on Day: " << car[5] << ", ";
         }
         cout << "Condition: " << car[6] << "%" << endl;
     }
@@ -363,8 +370,8 @@ public:
         {
             cerr << "Error inserting " << tablename << ": " << sqlite3_errmsg(db) << endl;
         }
-        cout << "Car " << car[0] << "(" << car[1] << ")"
-             << "Available: " << car[2] << "rentedBy: " << car[3] << "rentedOn: " << car[4] << "condition: " << car[5] << " added successfully." << endl;
+        cout << "Car " << car[0] << "(" << car[1] << "), "
+             << "Available: " << car[2] << ", rentedBy: " << car[3] << ", rentedOn: " << car[4] << ", Condition: " << car[5] << ", added successfully." << endl;
         sqlite3_finalize(stmt);
     }
 
@@ -387,12 +394,12 @@ public:
             }
 
             // Bind the values of car to the prepared statement
-            sqlite3_bind_text(stmt, 1, car[0].c_str(), -1, SQLITE_TRANSIENT); // Model
-            sqlite3_bind_text(stmt, 2, car[1].c_str(), -1, SQLITE_TRANSIENT); // Year
-            sqlite3_bind_text(stmt, 3, car[2].c_str(), -1, SQLITE_TRANSIENT); // Available
-            sqlite3_bind_text(stmt, 4, car[3].c_str(), -1, SQLITE_TRANSIENT); // RentedBy
-            sqlite3_bind_text(stmt, 5, car[4].c_str(), -1, SQLITE_TRANSIENT); // RentedOn
-            sqlite3_bind_text(stmt, 6, car[5].c_str(), -1, SQLITE_TRANSIENT); // Condition
+            sqlite3_bind_text(stmt, 1, car[1].c_str(), -1, SQLITE_TRANSIENT); // Model
+            sqlite3_bind_text(stmt, 2, car[2].c_str(), -1, SQLITE_TRANSIENT); // Year
+            sqlite3_bind_text(stmt, 3, car[3].c_str(), -1, SQLITE_TRANSIENT); // Available
+            sqlite3_bind_text(stmt, 4, car[4].c_str(), -1, SQLITE_TRANSIENT); // RentedBy
+            sqlite3_bind_text(stmt, 5, car[5].c_str(), -1, SQLITE_TRANSIENT); // RentedOn
+            sqlite3_bind_text(stmt, 6, car[6].c_str(), -1, SQLITE_TRANSIENT); // Condition
             sqlite3_bind_int(stmt, 7, id);                                    // ID
 
             // Execute the statement
@@ -488,11 +495,11 @@ public:
             cout << carId << ". " << model << " (" << year << "), ";
             if (available == "1")
             {
-                cout << "Available" << endl;
+                cout << "Available, ";
             }
             else
             {
-                cout << "Rented by: " << rentedBy << " on Day: " << rentedOn << endl;
+                cout << "Rented by: " << rentedBy << ", on Day: " << rentedOn << ", ";
             }
             cout << "Condition: " << condition << "%" << endl;
         } while (sqlite3_step(stmt) == SQLITE_ROW);
@@ -623,20 +630,24 @@ public:
             }
 
             // Bind the values of t to the prepared statement
-            sqlite3_bind_text(stmt, 1, cus[0].c_str(), -1, SQLITE_TRANSIENT); // Name
-            sqlite3_bind_text(stmt, 2, cus[1].c_str(), -1, SQLITE_TRANSIENT); // Money
-            sqlite3_bind_text(stmt, 3, cus[2].c_str(), -1, SQLITE_TRANSIENT); // rentedCars
-            sqlite3_bind_text(stmt, 4, cus[3].c_str(), -1, SQLITE_TRANSIENT); // fineDue
-            sqlite3_bind_text(stmt, 5, cus[4].c_str(), -1, SQLITE_TRANSIENT); // record
+            sqlite3_bind_text(stmt, 1, cus[1].c_str(), -1, SQLITE_TRANSIENT); // Name
+            sqlite3_bind_text(stmt, 2, cus[2].c_str(), -1, SQLITE_TRANSIENT); // Money
+            sqlite3_bind_text(stmt, 3, cus[3].c_str(), -1, SQLITE_TRANSIENT); // rentedCars
+            sqlite3_bind_text(stmt, 4, cus[4].c_str(), -1, SQLITE_TRANSIENT); // fineDue
+            sqlite3_bind_text(stmt, 5, cus[5].c_str(), -1, SQLITE_TRANSIENT); // record
             sqlite3_bind_int(stmt, 6, id);                                    // ID
 
             // Execute the statement
             if (sqlite3_step(stmt) != SQLITE_DONE)
             {
                 cerr << "Error updating customers: " << sqlite3_errmsg(db) << endl;
+                return;
             }
-
+            cout << "Customer " << cus[0] << " updated successfully." << endl;
             sqlite3_finalize(stmt);
+        }
+        else{
+            cout << "Customer not found." << endl;
         }
     }
 
@@ -815,20 +826,24 @@ public:
             }
 
             // Bind the values of t to the prepared statement
-            sqlite3_bind_text(stmt, 1, emp[0].c_str(), -1, SQLITE_TRANSIENT); // Name
-            sqlite3_bind_text(stmt, 2, emp[1].c_str(), -1, SQLITE_TRANSIENT); // Money
-            sqlite3_bind_text(stmt, 3, emp[2].c_str(), -1, SQLITE_TRANSIENT); // rentedCars
-            sqlite3_bind_text(stmt, 4, emp[3].c_str(), -1, SQLITE_TRANSIENT); // fineDue
-            sqlite3_bind_text(stmt, 5, emp[4].c_str(), -1, SQLITE_TRANSIENT); // record
+            sqlite3_bind_text(stmt, 1, emp[1].c_str(), -1, SQLITE_TRANSIENT); // Name
+            sqlite3_bind_text(stmt, 2, emp[2].c_str(), -1, SQLITE_TRANSIENT); // Money
+            sqlite3_bind_text(stmt, 3, emp[3].c_str(), -1, SQLITE_TRANSIENT); // rentedCars
+            sqlite3_bind_text(stmt, 4, emp[4].c_str(), -1, SQLITE_TRANSIENT); // fineDue
+            sqlite3_bind_text(stmt, 5, emp[5].c_str(), -1, SQLITE_TRANSIENT); // record
             sqlite3_bind_int(stmt, 6, id);                                    // ID
 
             // Execute the statement
             if (sqlite3_step(stmt) != SQLITE_DONE)
             {
                 cerr << "Error updating employees: " << sqlite3_errmsg(db) << endl;
+                return;
             }
-
+            cout << "Employee " << emp[0] << " updated successfully." << endl;
             sqlite3_finalize(stmt);
+        }
+        else{
+            cout << "Employee not found." << endl;
         }
     }
 
@@ -1248,6 +1263,26 @@ public:
         User::displayDetails();
         cout << "Role: Manager" << endl;
     }
+
+    void displayAllCustomers()
+    {
+        CustomerDb::display();
+    }
+
+    void displayAllEmployees()
+    {
+        EmployeeDb::display();
+    }
+
+    void displayCustomer(int id)
+    {
+        CustomerDb::displayCustomer(id);
+    }
+
+    void displayEmployee(int id)
+    {
+        EmployeeDb::displayEmployee(id);
+    }
 };
 
 class RentableUser : public User
@@ -1362,72 +1397,6 @@ public:
         // Code to browse available cars
         Car::checkRents(id, table);
     }
-
-    // void clear_dues(int money)
-    // {
-    //     // Code to clear dues
-    //     sqlite3 *db;
-    //     if (!Db::connectToDatabase(&db))
-    //         return;
-
-    //     // Check if customer has any dues
-    //     string sql = "SELECT * FROM " + table + " WHERE id=? AND (fineDue>0)"; // Adjust condition based on your criteria for having dues
-    //     sqlite3_stmt *stmt;
-    //     if (sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr) != SQLITE_OK)
-    //     {
-    //         cerr << "Error preparing statement: " << sqlite3_errmsg(db) << endl;
-    //         sqlite3_finalize(stmt);
-    //         sqlite3_close(db);
-    //         return;
-    //     }
-
-    //     sqlite3_bind_int(stmt, 1, id);
-
-    //     if (sqlite3_step(stmt) != SQLITE_ROW)
-    //     {
-    //         cout << "You don't have any outstanding dues." << endl;
-    //         sqlite3_finalize(stmt);
-    //         sqlite3_close(db);
-    //         return;
-    //     }
-
-    //     // Display current dues and ask for confirmation
-    //     double dues = sqlite3_column_double(stmt, 1);   // Assuming fineDue is stored in the 2nd column of the customer table
-    //     double record = sqlite3_column_double(stmt, 2); // Assuming customerRecord is stored in the 3rd column
-    //     cout << "Your current dues:" << endl;
-    //     cout << "- Dues: $" << dues << endl;
-    //     cout << "- Customer Record: " << record << endl;
-
-    //     if (!askConfirmation("Do you want to clear your dues?"))
-    //     {
-    //         sqlite3_finalize(stmt);
-    //         sqlite3_close(db);
-    //         return;
-    //     }
-
-    //     // Update customer record (assuming it can be improved through payment)
-    //     sql = "UPDATE customers SET customerRecord=1 WHERE id=?"; // Adjust update logic based on your criteria for improving customer record
-    //     sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr);
-    //     sqlite3_bind_int(stmt, 1, id);
-    //     if (sqlite3_step(stmt) != SQLITE_DONE)
-    //     {
-    //         cerr << "Error updating customer record: " << sqlite3_errmsg(db) << endl;
-    //     }
-
-    //     // Reset fine due
-    //     sql = "UPDATE customers SET fineDue=0 WHERE id=?";
-    //     sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr);
-    //     sqlite3_bind_int(stmt, 1, id);
-    //     if (sqlite3_step(stmt) != SQLITE_DONE)
-    //     {
-    //         cerr << "Error resetting fine due: " << sqlite3_errmsg(db) << endl;
-    //     }
-
-    //     cout << "Dues cleared successfully." << endl;
-
-    //     sqlite3_finalize(stmt);
-    //     sqlite3_close(db);
-    // }
 };
 
 // Class for customers
@@ -1554,7 +1523,7 @@ int main()
 
     if (role == 1)
     {
-        cout << "Enter Manager Password (Note for Development Purposes: Password is 123 ): " << endl;
+        cout << "Enter Manager Password (Note for Development Purposes: Password is 123): " << endl;
         string pass;
         cin >> pass;
         if (!manager.checkPassword(pass))
@@ -1565,8 +1534,14 @@ int main()
         cout << "Welcome Manager" << endl;
         while (true)
         {
+            cout << endl;
+            cout << endl;
+
             cout << "Enter a command: (Type 'help' for commands list)" << endl;
             cin >> command;
+            cout << endl;
+            cout << endl;
+
             if (command == "addCustomer")
             {
                 string name;
@@ -1592,6 +1567,7 @@ int main()
             else if (command == "updateCustomer")
             {
                 int newId;
+                manager.displayAllCustomers();
                 cout << "Enter the ID of the customer you want to update: ";
                 cin >> newId;
                 vector<string> cus = CustomerDb::searchCus(newId);
@@ -1602,22 +1578,22 @@ int main()
                 }
                 CustomerDb::displayCustomer(newId);
 
-                cout << "Enter new customer name: (Previously: " << cus[1] << ")";
+                cout << "Enter new customer name (Previously: " << cus[1] << "): ";
                 cin >> cus[1];
 
-                cout << "Enter new customer money: (Previously: " << cus[2] << ")";
+                cout << "Enter new customer money (Previously: " << cus[2] << "): ";
                 cin >> cus[2];
 
-                cout << "Enter new customer rentedCars: (Previously: " << cus[3] << ")";
+                cout << "Enter new customer rentedCars (Previously: " << cus[3] << "): ";
                 cin >> cus[3];
 
-                cout << "Enter new customer dues: (Previously: " << cus[4] << ")";
+                cout << "Enter new customer dues (Previously: " << cus[4] << "): ";
                 cin >> cus[4];
 
-                cout << "Enter new customer record: (Previously: " << cus[5] << ")";
+                cout << "Enter new customer record (Previously: " << cus[5] << "): ";
                 cin >> cus[5];
 
-                manager.updateCustomer(1, cus);
+                manager.updateCustomer(newId, cus);
             }
             else if (command == "deleteCustomer")
             {
@@ -1651,6 +1627,7 @@ int main()
             else if (command == "updateEmployee")
             {
                 int newId;
+                manager.displayAllEmployees();
                 cout << "Enter the ID of the employee you want to update: ";
                 cin >> newId;
                 vector<string> cus = EmployeeDb::searchEmp(newId);
@@ -1661,19 +1638,19 @@ int main()
                 }
                 EmployeeDb::displayEmployee(newId);
 
-                cout << "Enter new employee name: (Previously: " << cus[1] << ")";
+                cout << "Enter new employee name (Previously: " << cus[1] << "): ";
                 cin >> cus[1];
 
-                cout << "Enter new employee money: (Previously: " << cus[2] << ")";
+                cout << "Enter new employee money (Previously: " << cus[2] << "): ";
                 cin >> cus[2];
 
-                cout << "Enter new employee rentedCars: (Previously: " << cus[3] << ")";
+                cout << "Enter new employee rentedCars (Previously: " << cus[3] << "): ";
                 cin >> cus[3];
 
-                cout << "Enter new employee dues: (Previously: " << cus[4] << ")";
+                cout << "Enter new employee dues (Previously: " << cus[4] << "): ";
                 cin >> cus[4];
 
-                cout << "Enter new employee record: (Previously: " << cus[5] << ")";
+                cout << "Enter new employee record (Previously: " << cus[5] << "): ";
                 cin >> cus[5];
 
                 manager.updateEmployee(newId, cus);
@@ -1687,12 +1664,16 @@ int main()
             }
             else if (command == "addCar")
             {
+                string company;
                 string model;
                 string year;
                 int condition;
 
+                cout << "Enter car company: " << endl;
+                cin >> company;
                 cout << "Enter car model: " << endl;
                 cin >> model;
+                model = company + " " + model;
                 cout << "Enter car year: " << endl;
                 cin >> year;
                 cout << "Enter car condition (0-100%)" << endl;
@@ -1710,6 +1691,7 @@ int main()
             else if (command == "updateCar")
             {
                 int newId;
+                manager.displayAllCars();
                 cout << "Enter the ID of the car you want to update: ";
                 cin >> newId;
                 vector<string> car = CarDb::searchCar(newId);
@@ -1720,17 +1702,22 @@ int main()
                 }
                 CarDb::displayCar(newId);
 
-                cout << "Enter new car model: (Previously: " << car[1] << ")";
+                string company;
+
+                cout << "Enter new car company (Previously: " << car[1] << "): ";
+                cin >> company;
+                cout << "Enter new car model (Previously: " << car[1] << "): ";
                 cin >> car[1];
-                cout << "Enter new car year: (Previously: " << car[2] << ")";
+                car[1] = company + " " + car[1];
+                cout << "Enter new car year (Previously: " << car[2] << "): ";
                 cin >> car[2];
-                cout << "Enter new car available: (Previously: " << car[3] << ")";
+                cout << "Enter new car available (Previously: " << car[3] << "): ";
                 cin >> car[3];
-                cout << "Enter new car rentedBy: (Previously: " << car[4] << ")";
+                cout << "Enter new car rentedBy (Previously: " << car[4] << "): ";
                 cin >> car[4];
-                cout << "Enter new car rentedOn: (Previously: " << car[5] << ")";
+                cout << "Enter new car rentedOn (Previously: " << car[5] << "): ";
                 cin >> car[5];
-                cout << "Enter new car condition: (Previously: " << car[6] << ")";
+                cout << "Enter new car condition (Previously: " << car[6] << "): ";
                 cin >> car[6];
 
                 if (stoi(car[6]) < 0 || stoi(car[6]) > 100)
@@ -1755,6 +1742,28 @@ int main()
             {
                 manager.displayAllCars();
             }
+            else if (command == "displayAllCustomers")
+            {
+                manager.displayAllCustomers();
+            }
+            else if (command == "displayAllEmployees")
+            {
+                manager.displayAllEmployees();
+            }
+            else if (command == "displayCustomer")
+            {
+                int newId;
+                cout << "Enter the ID of the customer you want to display: ";
+                cin >> newId;
+                manager.displayCustomer(newId);
+            }
+            else if (command == "displayEmployee")
+            {
+                int newId;
+                cout << "Enter the ID of the employee you want to display: ";
+                cin >> newId;
+                manager.displayEmployee(newId);
+            }
             else if (command == "help")
             {
                 cout << endl;
@@ -1769,6 +1778,12 @@ int main()
                 cout << "addCar: Add a car." << endl;
                 cout << "updateCar: Update a car." << endl;
                 cout << "deleteCar: Delete a car." << endl;
+                cout << "displayAvailableCars: Display available cars." << endl;
+                cout << "displayAllCars: Display all cars." << endl;
+                cout << "displayAllCustomers: Display all customers." << endl;
+                cout << "displayAllEmployees: Display all employees." << endl;
+                cout << "displayCustomer: Display a customer." << endl;
+                cout << "displayEmployee: Display an employee." << endl;
                 cout << "exit: Exit the program." << endl;
             }
             else if (command == "exit")
@@ -1801,11 +1816,16 @@ int main()
             cout << "Invalid Password" << endl;
             exit(1);
         }
-        cout << "Welcome " << cus[0] << endl;
+        cout << "Welcome " << cus[1] << endl;
         while (true)
         {
-            std::cout << "Enter a command: (Type 'help' for commands list)" << endl;
-            std::cin >> command;
+            cout << endl;
+            cout << endl;
+
+            cout << "Enter a command: (Type 'help' for commands list)" << endl;
+            cin >> command;
+            cout << endl;
+            cout << endl;
 
             if (command == "myDetails")
             {
@@ -1880,11 +1900,15 @@ int main()
             exit(1);
         }
 
-        cout << "Welcome " << cus[0] << endl;
+        cout << "Welcome " << cus[1] << endl;
         while (true)
         {
-            std::cout << "Enter a command: (Type 'help' for commands list)" << endl;
-            std::cin >> command;
+            cout << endl;
+            cout << endl;
+            cout << "Enter a command: (Type 'help' for commands list)" << endl;
+            cin >> command;
+            cout << endl;
+            cout << endl;
 
             if (command == "myDetails")
             {
