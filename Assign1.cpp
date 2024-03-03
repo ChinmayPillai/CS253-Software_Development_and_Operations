@@ -1376,22 +1376,6 @@ public:
         sqlite3_close(db);
     }
 
-    void checkRentedCars()
-    {
-        // Code to return a car
-        sqlite3 *db;
-        if (!Db::connectToDatabase(&db))
-            return;
-
-        // Check and display rented cars
-        vector<int> rentedCars = Manager::checkRents(id, table, db);
-        if (rentedCars.size() == 0)
-        {
-            cout << "You haven't rented any cars." << endl;
-        }
-        return;
-    }
-
     void browseRentedCars()
     {
         // Code to browse available cars
@@ -1839,10 +1823,6 @@ int main()
             {
                 customer.returnCar();
             }
-            else if (command == "checkRentedCars")
-            {
-                customer.checkRentedCars();
-            }
             else if (command == "clearDues")
             {
                 customer.clear_dues();
@@ -1863,7 +1843,6 @@ int main()
                 cout << "myDetails: Display your details." << endl;
                 cout << "rentCar: Rent a car." << endl;
                 cout << "returnCar: Return a car." << endl;
-                cout << "checkRentedCars: Check your rented cars and their due dates." << endl;
                 cout << "clearDues: Clear your dues." << endl;
                 cout << "displayAvailableCars: Display available cars." << endl;
                 cout << "currentlyRentedCars: Display currently rented cars." << endl;
@@ -1922,10 +1901,6 @@ int main()
             {
                 employee.returnCar();
             }
-            else if (command == "checkRentedCars")
-            {
-                employee.checkRentedCars();
-            }
             else if (command == "clearDues")
             {
                 employee.clear_dues();
@@ -1946,7 +1921,6 @@ int main()
                 cout << "myDetails: Display your details." << endl;
                 cout << "rentCar: Rent a car." << endl;
                 cout << "returnCar: Return a car." << endl;
-                cout << "checkRentedCars: Check your rented cars and their due dates." << endl;
                 cout << "clearDues: Clear your dues." << endl;
                 cout << "displayAvailableCars: Display available cars." << endl;
                 cout << "currentlyRentedCars: Display currently rented cars." << endl;
