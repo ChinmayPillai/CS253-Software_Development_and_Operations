@@ -529,7 +529,7 @@ public:
         tablename = "customers";
         sqlite3 *db;
         connectToDatabase(&db);
-        string sql = "CREATE TABLE IF NOT EXISTS customers (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, money INTEGER NOT NULL DEFAULT 5000, rentedCars INTEGER NOT NULL DEFAULT 0, fineDue INTEGER NOT NULL DEFAULT 0, customerRecord INTEGER NOT NULL DEFAULT 5)";
+        string sql = "CREATE TABLE IF NOT EXISTS customers (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, money INTEGER NOT NULL DEFAULT 5000, rentedCars INTEGER NOT NULL DEFAULT 0, fineDue INTEGER NOT NULL DEFAULT 0, customerRecord INTEGER NOT NULL DEFAULT 5, password TEXT NOT NULL DEFAULT 123)";
         createTable(db, sql);
         load(db);
     }
@@ -721,7 +721,7 @@ public:
         tablename = "employees";
         sqlite3 *db;
         connectToDatabase(&db);
-        string sql = "CREATE TABLE IF NOT EXISTS employees (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, money INTEGER NOT NULL DEFAULT 500, rentedCars INTEGER NOT NULL DEFAULT 0, fineDue INTEGER NOT NULL DEFAULT 0, employeeRecord INTEGER NOT NULL DEFAULT 7)";
+        string sql = "CREATE TABLE IF NOT EXISTS employees (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, money INTEGER NOT NULL DEFAULT 500, rentedCars INTEGER NOT NULL DEFAULT 0, fineDue INTEGER NOT NULL DEFAULT 0, employeeRecord INTEGER NOT NULL DEFAULT 7, password TEXT NOT NULL DEFAULT 123)";
         createTable(db, sql);
         load(db);
     }
@@ -894,13 +894,21 @@ protected:
     int id;
     string password;
 
-    User(int i) : id(i) {}
+    User(int i) : id(i)
+    {
+        password = "123";
+    }
 
     User(string n, int i, string p) : name(n), id(i), password(p) {}
 
     virtual void displayDetails() const
     {
         cout << "Name: " << name << ", ID: " << id << endl;
+    }
+
+    checkPassword(string pass)
+    {
+        return pass == password
     }
 };
 
@@ -1352,6 +1360,10 @@ public:
         Car::checkRents(id, table);
     }
 
+    void checkPassword(string passwd)
+    {
+    }
+
     // void clear_dues(int money)
     // {
     //     // Code to clear dues
@@ -1531,7 +1543,7 @@ int main()
     sqlite3 *db;
     Db::connectToDatabase(&db);
 
-    Manager manager("John Doe", 1, "password123");
+    Manager manager("John Doe", 1, "123");
 
     cout << "Enter your role (1/2/3): 1. Manager, 2. Customer, 3. Employee" << endl;
     int role;
@@ -1543,6 +1555,14 @@ int main()
 
     if (role == 1)
     {
+        cout << "Enter Manager Password (Note for Development Purposes: Password is 123 ): " << endl;
+        string pass;
+        cin >> pass;
+        if (!manager.checkPassword(pass))
+        {
+            cout << "Invalid Password" << endl;
+            exit(1);
+        }
         cout << "Welcome Manager" << endl;
         while (true)
         {
@@ -1764,7 +1784,6 @@ int main()
     }
     else if (role == 2)
     {
-        cout << "Welcome Customer" << endl;
         cout << "Enter your ID: ";
         id;
         cin >> id;
@@ -1775,6 +1794,15 @@ int main()
             exit(1);
         }
         Customer customer(id);
+        string pass;
+        cout << "Enter Password (Note for Development Purposes: Password is 123): " << endl;
+        cin >> pass;
+        if (!customer.checkPassword(pass))
+        {
+            cout << "Invalid Password" << endl;
+            exit(1);
+        }
+        cout << "Welcome " << cus[0] << endl;
         while (true)
         {
             std::cout << "Enter a command: (Type 'help' for commands list)" << endl;
@@ -1834,7 +1862,6 @@ int main()
     }
     else if (role == 3)
     {
-        cout << "Welcome Employee" << endl;
         cout << "Enter your ID: ";
         id;
         cin >> id;
@@ -1845,6 +1872,16 @@ int main()
             exit(1);
         }
         Employee employee(id);
+        string pass;
+        cout << "Enter Password (Note for Development Purposes: Password is 123): " << endl;
+        cin >> pass;
+        if (!employee.checkPassword(pass))
+        {
+            cout << "Invalid Password" << endl;
+            exit(1);
+        }
+
+        cout << "Welcome " << cus[0] << endl;
         while (true)
         {
             std::cout << "Enter a command: (Type 'help' for commands list)" << endl;
