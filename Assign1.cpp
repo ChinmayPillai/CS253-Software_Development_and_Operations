@@ -906,9 +906,11 @@ protected:
         cout << "Name: " << name << ", ID: " << id << endl;
     }
 
-    checkPassword(string pass)
+public:
+
+    bool checkPassword(string pass)
     {
-        return pass == password
+        return pass == password;
     }
 };
 
@@ -997,9 +999,9 @@ public:
             int car_id = sqlite3_column_int(stmt, 0);
             string model = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 1));
             string year = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 2));
-            int dueDate = dueDate(car_id);
+            int due = dueDate(car_id);
 
-            cout << car_id << ". " << model << " (" << year << "), Due Date: " << dueDate << endl;
+            cout << car_id << ". " << model << " (" << year << "), Due Date: " << due << endl;
             rentedCars.push_back(car_id);
 
         } while (sqlite3_step(stmt) == SQLITE_ROW);
@@ -1039,9 +1041,10 @@ public:
 
             recordDuction += 1;
         }
-        if (condition < car[6])
+        if (condition < stoi(car[6]))
         {
-            cout << "The condition of the car is worse than when you rented it. A fine of $20 per % difference will be added to your account." fine += 20 * (car[6] - condition);
+            cout << "The condition of the car is worse than when you rented it. A fine of $20 per % difference will be added to your account." << endl;
+            fine += 20 * (stoi(car[6]) - condition);
 
             recordDuction += 2;
         }
@@ -1358,10 +1361,6 @@ public:
     {
         // Code to browse available cars
         Car::checkRents(id, table);
-    }
-
-    void checkPassword(string passwd)
-    {
     }
 
     // void clear_dues(int money)
@@ -1696,7 +1695,7 @@ int main()
                 cin >> model;
                 cout << "Enter car year: " << endl;
                 cin >> year;
-                cout >> "Enter car condition (0-100%)" << endl;
+                cout << "Enter car condition (0-100%)" << endl;
                 cin >> condition;
 
                 if (condition < 0 || condition > 100)
@@ -1734,7 +1733,7 @@ int main()
                 cout << "Enter new car condition: (Previously: " << car[6] << ")";
                 cin >> car[6];
 
-                if (car[6] < 0 || car[6] > 100)
+                if (stoi(car[6]) < 0 || stoi(car[6]) > 100)
                 {
                     cout << "Invalid condition" << endl;
                     exit(1);
@@ -1901,7 +1900,7 @@ int main()
             }
             else if (command == "checkRentedCars")
             {
-                customer.checkRentedCars();
+                employee.checkRentedCars();
             }
             else if (command == "clearDues")
             {
