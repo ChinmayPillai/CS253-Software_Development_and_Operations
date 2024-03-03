@@ -989,8 +989,9 @@ public:
             int car_id = sqlite3_column_int(stmt, 0);
             string model = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 1));
             string year = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 2));
+            int dueDate = dueDate(car_id);
 
-            cout << car_id << ". " << model << " (" << year << ")" << endl;
+            cout << car_id << ". " << model << " (" << year << "), Due Date: " << dueDate << endl;
             rentedCars.push_back(car_id);
 
         } while (sqlite3_step(stmt) == SQLITE_ROW);
@@ -1080,6 +1081,41 @@ public:
     void displayDetails() const
     {
         cout << "Model: " << model << ", Condition: " << condition << endl;
+    }
+
+    static int dueDate(int carId)
+    {
+        sqlite3 *db;
+        if (!Db::connectToDatabase(&db))
+            return -1;
+        string sql = "SELECT rentedOn FROM cars WHERE id = ?";
+        sqlite3_stmt *stmt;
+        if (sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr) != SQLITE_OK)
+        {
+            cerr << "Error preparing statement for searching: " << sqlite3_errmsg(db) << endl;
+            sqlite3_finalize(stmt);
+            sqlite3_close(db);
+            return -1;
+        }
+
+        // Bind the value of id to the prepared statement
+        sqlite3_bind_int(stmt, 1, carId);
+
+        // Execute the statement
+        if (sqlite3_step(stmt) != SQLITE_ROW)
+        {
+            cerr << "Error executing statement: " << sqlite3_errmsg(db) << endl;
+            sqlite3_finalize(stmt);
+            sqlite3_close(db);
+            return -1;
+        }
+
+        int rentedOn = sqlite3_column_int(stmt, 0);
+        sqlite3_finalize(stmt);
+        sqlite3_close(db);
+        if (rentedOn == -1)
+            return -1;
+        return rentedOn + RENT_DAYS_ALLOWED;
     }
 };
 
@@ -1294,6 +1330,28 @@ public:
         sqlite3_close(db);
     }
 
+    void checkRentedCars()
+    {
+        // Code to return a car
+        sqlite3 *db;
+        if (!Db::connectToDatabase(&db))
+            return;
+
+        // Check and display rented cars
+        vector<int> rentedCars = Manager::checkRents(id, table, db);
+        if (rentedCars.size() == 0)
+        {
+            cout << "You haven't rented any cars." << endl;
+        }
+        return;
+    }
+
+    void browseRentedCars()
+    {
+        // Code to browse available cars
+        Car::checkRents(id, table);
+    }
+
     // void clear_dues(int money)
     // {
     //     // Code to clear dues
@@ -1359,12 +1417,6 @@ public:
     //     sqlite3_finalize(stmt);
     //     sqlite3_close(db);
     // }
-
-    void browseRentedCars()
-    {
-        // Code to browse available cars
-        Car::checkRents(id, table);
-    }
 };
 
 // Class for customers
@@ -1740,6 +1792,10 @@ int main()
             {
                 customer.returnCar();
             }
+            else if (command == "checkRentedCars")
+            {
+                customer.checkRentedCars();
+            }
             else if (command == "clearDues")
             {
                 customer.clear_dues();
@@ -1760,6 +1816,7 @@ int main()
                 cout << "myDetails: Display your details." << endl;
                 cout << "rentCar: Rent a car." << endl;
                 cout << "returnCar: Return a car." << endl;
+                cout << "checkRentedCars: Check your rented cars and their due dates." << endl;
                 cout << "clearDues: Clear your dues." << endl;
                 cout << "displayAvailableCars: Display available cars." << endl;
                 cout << "currentlyRentedCars: Display currently rented cars." << endl;
@@ -1805,6 +1862,10 @@ int main()
             {
                 employee.returnCar();
             }
+            else if (command == "checkRentedCars")
+            {
+                customer.checkRentedCars();
+            }
             else if (command == "clearDues")
             {
                 employee.clear_dues();
@@ -1825,6 +1886,7 @@ int main()
                 cout << "myDetails: Display your details." << endl;
                 cout << "rentCar: Rent a car." << endl;
                 cout << "returnCar: Return a car." << endl;
+                cout << "checkRentedCars: Check your rented cars and their due dates." << endl;
                 cout << "clearDues: Clear your dues." << endl;
                 cout << "displayAvailableCars: Display available cars." << endl;
                 cout << "currentlyRentedCars: Display currently rented cars." << endl;
