@@ -214,11 +214,12 @@ class CarDb : public Db
 {
 private:
     vector<vector<string>> defaultData = {
-        {"Lambo Aventador", "2023"},
-        {"Ferrari F8", "2022"},
-        {"Koenigsegg Agera", "2021"},
-        {"Bugatti Veyron", "2020"},
-        {"Rolls Royce Spectre", "2019"}};
+        {"Lambo Aventador", "2023", "1", "-1", "-1", "100"},
+        {"Ferrari F8", "2022", "1", "-1", "-1", "100"},
+        {"Porsche 911", "2021", "1", "-1", "-1", "100"},
+        {"Koenigsegg Agera", "2021", "1", "-1", "-1", "100"},
+        {"Bugatti Veyron", "2020", "1", "-1", "-1", "100"},
+        {"Rolls Royce Spectre", "2019", "1", "-1", "-1", "100"}};
 
     void load(sqlite3 *db)
     {
@@ -238,7 +239,7 @@ public:
         tablename = "cars";
         sqlite3 *db;
         connectToDatabase(&db);
-        string sql = "CREATE TABLE IF NOT EXISTS cars (id INTEGER PRIMARY KEY AUTOINCREMENT, model TEXT NOT NULL, year TEXT, available INTEGER NOT NULL DEFAULT 1, rentedBy INTEGER NOT NULL DEFAULT -1, rentedOn INTEGER NOT NULL DEFAULT -1, FOREIGN KEY(rentedBy) REFERENCES customers(id) ON DELETE SET DEFAULT)";
+        string sql = "CREATE TABLE IF NOT EXISTS cars (id INTEGER PRIMARY KEY AUTOINCREMENT, model TEXT NOT NULL, year TEXT, available INTEGER NOT NULL DEFAULT 1, rentedBy INTEGER NOT NULL DEFAULT -1, rentedOn INTEGER NOT NULL DEFAULT -1, condition INTEGER NOT NULL DEFAULT 100 CHECK (condition >= 0 AND condition <= 100), FOREIGN KEY(rentedBy) REFERENCES customers(id) ON DELETE SET DEFAULT)";
         // string sql_customers = "CREATE TABLE IF NOT EXISTS customers (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, password TEXT NOT NULL, rentedCars INTEGER NOT NULL DEFAULT 0, fineDue DOUBLE NOT NULL DEFAULT 0, customerRecord DOUBLE NOT NULL DEFAULT 0)";
         createTable(db, sql);
         load(db);
@@ -312,6 +313,7 @@ public:
         car.push_back(reinterpret_cast<const char *>(sqlite3_column_text(stmt, 3)));
         car.push_back(reinterpret_cast<const char *>(sqlite3_column_text(stmt, 4)));
         car.push_back(reinterpret_cast<const char *>(sqlite3_column_text(stmt, 5)));
+        car.push_back(reinterpret_cast<const char *>(sqlite3_column_text(stmt, 6)));
         sqlite3_finalize(stmt);
         sqlite3_close(db);
         return car;
@@ -330,6 +332,7 @@ public:
         {
             cout << "Rented by: " << car[4] << " on Day: " << car[5] << endl;
         }
+        cout << "Condition: " << car[6] << "%" << endl;
     }
 
     void add(const vector<string> car, sqlite3 *db = nullptr)
@@ -339,7 +342,7 @@ public:
             if (!connectToDatabase(&db))
                 return;
         }
-        string sql = "INSERT INTO cars (model, year) VALUES (?, ?)";
+        string sql = "INSERT INTO cars (model, year, available, rentedBy, rentedOn, condition) VALUES (?, ?, ?, ?, ?, ?)";
         sqlite3_stmt *stmt;
         if (sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr) != SQLITE_OK)
         {
@@ -350,6 +353,10 @@ public:
         // Bind the values of t to the prepared statement
         sqlite3_bind_text(stmt, 1, car[0].c_str(), -1, SQLITE_TRANSIENT); // Model
         sqlite3_bind_text(stmt, 2, car[1].c_str(), -1, SQLITE_TRANSIENT); // Year
+        sqlite3_bind_text(stmt, 3, car[2].c_str(), -1, SQLITE_TRANSIENT); // Available
+        sqlite3_bind_text(stmt, 4, car[3].c_str(), -1, SQLITE_TRANSIENT); // RentedBy
+        sqlite3_bind_text(stmt, 5, car[4].c_str(), -1, SQLITE_TRANSIENT); // RentedOn
+        sqlite3_bind_text(stmt, 6, car[5].c_str(), -1, SQLITE_TRANSIENT); // Condition
 
         // Execute the statement
         if (sqlite3_step(stmt) != SQLITE_DONE)
@@ -357,7 +364,7 @@ public:
             cerr << "Error inserting " << tablename << ": " << sqlite3_errmsg(db) << endl;
         }
         cout << "Car " << car[0] << "(" << car[1] << ")"
-             << " added successfully." << endl;
+             << "Available: " << car[2] << "rentedBy: " << car[3] << "rentedOn: " << car[4] << "condition: " << car[5] << " added successfully." << endl;
         sqlite3_finalize(stmt);
     }
 
@@ -370,7 +377,7 @@ public:
         }
         if (searchTable(id, "cars", db))
         {
-            string sql = "UPDATE cars SET model = ?, year = ?, available = ?, rentedBy = ?, rentedOn = ? WHERE id = ?;";
+            string sql = "UPDATE cars SET model = ?, year = ?, available = ?, rentedBy = ?, rentedOn = ?, condition = ? WHERE id = ?;";
 
             sqlite3_stmt *stmt;
             if (sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr) != SQLITE_OK)
@@ -384,8 +391,9 @@ public:
             sqlite3_bind_text(stmt, 2, car[1].c_str(), -1, SQLITE_TRANSIENT); // Year
             sqlite3_bind_text(stmt, 3, car[2].c_str(), -1, SQLITE_TRANSIENT); // Available
             sqlite3_bind_text(stmt, 4, car[3].c_str(), -1, SQLITE_TRANSIENT); // RentedBy
-            sqlite3_bind_text(stmt, 5, car[4].c_str(), -1, SQLITE_TRANSIENT); // RentedBy
-            sqlite3_bind_int(stmt, 6, id);                                    // ID
+            sqlite3_bind_text(stmt, 5, car[4].c_str(), -1, SQLITE_TRANSIENT); // RentedOn
+            sqlite3_bind_text(stmt, 6, car[5].c_str(), -1, SQLITE_TRANSIENT); // Condition
+            sqlite3_bind_int(stmt, 7, id);                                    // ID
 
             // Execute the statement
             if (sqlite3_step(stmt) != SQLITE_DONE)
@@ -430,9 +438,10 @@ public:
             int carId = sqlite3_column_int(stmt, 0);
             string model = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 1));
             string year = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 2));
-            // Additional car details can be displayed if available in the table
+            string condition = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 6));
 
-            cout << carId << ". " << model << " (" << year << ")" << endl;
+            cout << carId << ". " << model << " (" << year << ")"
+                 << ", Condition: " << condition << "%" << endl;
         } while (sqlite3_step(stmt) == SQLITE_ROW);
 
         sqlite3_finalize(stmt);
@@ -474,6 +483,7 @@ public:
             string available = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 3));
             string rentedBy = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 4));
             string rentedOn = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 5));
+            string condition = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 6));
 
             cout << carId << ". " << model << " (" << year << "), ";
             if (available == "1")
@@ -484,6 +494,7 @@ public:
             {
                 cout << "Rented by: " << rentedBy << " on Day: " << rentedOn << endl;
             }
+            cout << "Condition: " << condition << "%" << endl;
         } while (sqlite3_step(stmt) == SQLITE_ROW);
 
         sqlite3_finalize(stmt);
@@ -899,7 +910,6 @@ class Car
 private:
     string model;
     string condition;
-    string tablename = "cars";
 
 public:
     Car(string m, string c) : model(m), condition(c) {}
@@ -989,7 +999,7 @@ public:
         return rentedCars;
     }
 
-    static bool returnCar(int cusId, int carId, int date, string table, int daysAllowed, int rentPerDay, double employeeDiscount, sqlite3 *db = nullptr)
+    static bool returnCar(int cusId, int carId, int date, int condition, string table, int daysAllowed, int rentPerDay, double employeeDiscount, sqlite3 *db = nullptr)
     {
         if (db == nullptr)
         {
@@ -1002,17 +1012,34 @@ public:
         vector<string> car = CarDb::searchCar(carId);
         int rentedOn = stoi(car[5]);
         int rentDays = date - rentedOn;
+        if (rentDays < 0)
+        {
+            cout << "Invalid return date. Please enter a date after the rental date." << endl;
+            return false;
+        }
         int fine = rentDays * rentPerDay;
         if (table == "employees")
         {
             fine = (1 - employeeDiscount) * fine;
         }
+        int recordDuction = 0;
         if (rentDays > daysAllowed)
         {
             cout << "You have exceeded the allowed rental period. A fine of $10 per day will be added to your account." << endl;
             fine += 10 * (rentDays - daysAllowed);
 
-            string sql = "UPDATE " + table + " SET customerRecord=customerRecord-2 WHERE id=?";
+            recordDuction += 1;
+        }
+        if (condition < car[6])
+        {
+            cout << "The condition of the car is worse than when you rented it. A fine of $20 per % difference will be added to your account." fine += 20 * (car[6] - condition);
+
+            recordDuction += 2;
+        }
+
+        if (recordDuction > 0)
+        {
+            string sql = "UPDATE " + table + " SET customerRecord=customerRecord-1 WHERE id=?";
             sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr);
             sqlite3_bind_int(stmt, 1, cusId);
             if (sqlite3_step(stmt) != SQLITE_DONE)
@@ -1138,9 +1165,17 @@ public:
     static bool returnCar(int cusId, int carId, string table, sqlite3 *db = nullptr)
     {
         int date;
-        cout << "Enter today's date (int)" << endl;
+        cout << "Enter today's date (int):" << endl;
         cin >> date;
-        return Car::returnCar(cusId, carId, date, table, RENT_DAYS_ALLOWED, RENT_PER_DAY, EMPLOYEE_DISCOUNT, db);
+        int condition;
+        cout << "Enter condition (0-100%) of returned car:" << endl;
+        cin >> condition;
+        if (condition < 0 || condition > 100)
+        {
+            cout << "Invalid condition. Please enter a value between 0 and 100." << endl;
+            return false;
+        }
+        return Car::returnCar(cusId, carId, date, condition, table, RENT_DAYS_ALLOWED, RENT_PER_DAY, EMPLOYEE_DISCOUNT, db);
     }
 
     static void updateDues(int cusId, int money, int dues, string table)
@@ -1583,13 +1618,22 @@ int main()
             {
                 string model;
                 string year;
+                int condition;
 
-                cout << "Enter car model: ";
+                cout << "Enter car model: " << endl;
                 cin >> model;
-                cout << "Enter car year: ";
+                cout << "Enter car year: " << endl;
                 cin >> year;
+                cout >> "Enter car condition (0-100%)" << endl;
+                cin >> condition;
 
-                vector<string> car = {model, year, "1", "0", "0"};
+                if (condition < 0 || condition > 100)
+                {
+                    cout << "Invalid condition" << endl;
+                    exit(1);
+                }
+
+                vector<string> car = {model, year, "1", "0", "0", to_string(condition)};
                 manager.addCar(car);
             }
             else if (command == "updateCar")
@@ -1615,7 +1659,14 @@ int main()
                 cin >> car[4];
                 cout << "Enter new car rentedOn: (Previously: " << car[5] << ")";
                 cin >> car[5];
+                cout << "Enter new car condition: (Previously: " << car[6] << ")";
+                cin >> car[6];
 
+                if (car[6] < 0 || car[6] > 100)
+                {
+                    cout << "Invalid condition" << endl;
+                    exit(1);
+                }
                 manager.updateCar(newId, car);
             }
             else if (command == "deleteCar")
