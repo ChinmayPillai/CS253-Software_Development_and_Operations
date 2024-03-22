@@ -31,7 +31,7 @@ echo "------------------" >> "$output_file"
 # 3. Average salary per city
 echo "Details of average salary of each city: " >> "$output_file"
 # calculate the average salary for each city
-awk -F ", " 'NR > 1 {cities[$3] += $4; count[$3]++} END {for (city in cities) {printf("City: %s, Salary: %.1f\n", city, cities[city] / count[city])}}' "$1" >> "$output_file"
+awk -F ", " 'NR > 1 {cities[$3] += $4; count[$3]++} END {for (city in cities) {printf("City: %s, Salary: %g\n", city, cities[city] / count[city])}}' "$1" >> "$output_file"
 echo "------------------" >> "$output_file"
 
 # 4. Individuals with salary above overall average

@@ -12,11 +12,11 @@ Alex, 33, San Francisco, 95000
 Henry, 33, Los Angeles, 94000
 ------------------
 Details of average salary of each city: 
-City: Los Angeles, Salary: 76750.0
+City: Los Angeles, Salary: 76750
 City: San Francisco, Salary: 85083.3
 City: Chicago, Salary: 81076.9
 City: New York, Salary: 73666.7
-City: Seattle, Salary: 75000.0
+City: Seattle, Salary: 75000
 ------------------
 Details of individuals with a salary above the overall average salary: 
 Alice  30  San Francisco  80000
