@@ -7,4 +7,4 @@ Car Rental CLI using OOPs in C++
 BASH scripting to analyse data on salaries of individuals across cities and ages
 
 ## Assignment 3
-Multi-Class Machine Learning Model Development in Python 
+Multi-Class Data Modelling using Machine Learning in Python 
